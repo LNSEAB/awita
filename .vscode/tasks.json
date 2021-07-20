@@ -1,0 +1,25 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "build hello",
+			"type": "cargo",
+			"command": "build",
+			"args": ["--example", "hello"],
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build",
+			"presentation": {
+				"reveal": "always",
+			},
+			"options": {
+				"shell": {
+					"executable": "cmd.exe",
+					"args": ["/c"]
+				},
+				"cwd": "${workspaceFolder}"
+			}
+		}
+	]
+}

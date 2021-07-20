@@ -1,0 +1,18 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "hello",
+			"type": "cppvsdbg",
+			"request": "launch",
+			"program": "${workspaceFolder}/target/debug/examples/hello.exe",
+			"args": [],
+			"stopAtEntry": false,
+			"cwd": "${workspaceFolder}/awita",
+			"environment": [],
+			"console": "integratedTerminal",
+			"preLaunchTask": "build hello",
+			"internalConsoleOptions": "openOnSessionStart",
+		}
+	]
+}
