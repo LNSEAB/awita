@@ -39,24 +39,25 @@ fn xbutton_to_ex(wp: WPARAM) -> MouseButton {
     MouseButton::ex(n - 1)
 }
 
-fn update_mouse_buttons(buttons: &mut Vec<MouseButton>, wparam: WPARAM) {
-    buttons.clear();
+fn get_mouse_buttons(wparam: WPARAM) -> MouseButtons {
+    let mut buttons = 0;
     let values = get_button_states(wparam);
     if values & MK_LBUTTON != 0 {
-        buttons.push(MouseButton::Left);
+        buttons |= MouseButton::Left as u32;
     }
     if values & MK_RBUTTON != 0 {
-        buttons.push(MouseButton::Right);
+        buttons |= MouseButton::Right as u32;
     }
     if values & MK_MBUTTON != 0 {
-        buttons.push(MouseButton::Middle);
+        buttons |= MouseButton::Middle as u32;
     }
     if values & MK_XBUTTON1 != 0 {
-        buttons.push(MouseButton::Ex0);
+        buttons |= MouseButton::Ex0 as u32;
     }
     if values & MK_XBUTTON2 != 0 {
-        buttons.push(MouseButton::Ex1);
+        buttons |= MouseButton::Ex1 as u32;
     }
+    buttons.into()
 }
 
 unsafe fn mouse_input(
@@ -66,11 +67,10 @@ unsafe fn mouse_input(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
-    if let Some(mut window) = context().get_window_mut(hwnd) {
-        update_mouse_buttons(&mut window.mouse_buttons, wparam);
+    if let Some(window) = context().get_window(hwnd) {
         let mouse_state = MouseState {
             position: lparam_to_point(lparam),
-            buttons: MouseButtons::new(&window.mouse_buttons),
+            buttons: get_mouse_buttons(wparam),
         };
         window
             .mouse_input_tx

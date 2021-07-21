@@ -51,12 +51,11 @@ impl MouseButton {
         assert!(n <= 28);
         unsafe { std::mem::transmute(1u32 << (3 + n)) }
     }
-}
 
-impl From<u32> for MouseButton {
-    fn from(src: u32) -> Self {
-        unsafe { std::mem::transmute(src) }
-    }
+	#[inline]
+	fn from_u32(n: u32) -> Self {
+        unsafe { std::mem::transmute(n) }
+	}
 }
 
 #[derive(Clone, Copy)]
@@ -75,13 +74,19 @@ impl MouseButtons {
     }
 }
 
+impl From<u32> for MouseButtons {
+	fn from(src: u32) -> Self {
+		MouseButtons(src)
+	}
+}
+
 impl std::fmt::Debug for MouseButtons {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "MouseButtons([")?;
         let mut i = 0;
         while i < 32 {
             if self.0 & (1 << i) != 0 {
-                write!(f, "{:?}", MouseButton::from(1 << i))?;
+                write!(f, "{:?}", MouseButton::from_u32(1 << i))?;
                 i += 1;
                 break;
             }
@@ -89,7 +94,7 @@ impl std::fmt::Debug for MouseButtons {
         }
         while i < 32 {
             if self.0 & (1 << i) != 0 {
-                write!(f, ", {:?}", MouseButton::from(1 << i))?;
+                write!(f, ", {:?}", MouseButton::from_u32(1 << i))?;
             }
             i += 1;
         }
@@ -116,8 +121,8 @@ mod tests {
 
     #[test]
     fn u32_to_mouse_buton() {
-        assert!(MouseButton::Left == MouseButton::from(1u32 << 0));
-        assert!(MouseButton::Right == MouseButton::from(1u32 << 1));
-        assert!(MouseButton::Middle == MouseButton::from(1u32 << 2));
+        assert!(MouseButton::Left == MouseButton::from_u32(1u32 << 0));
+        assert!(MouseButton::Right == MouseButton::from_u32(1u32 << 1));
+        assert!(MouseButton::Middle == MouseButton::from_u32(1u32 << 2));
     }
 }

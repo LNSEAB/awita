@@ -80,7 +80,6 @@ fn window_class() -> &'static Vec<u16> {
 }
 
 pub(crate) struct WindowState {
-    pub mouse_buttons: Vec<MouseButton>,
     pub activated_tx: broadcast::Sender<()>,
     pub inactivated_tx: broadcast::Sender<()>,
     pub mouse_input_tx: broadcast::Sender<event::MouseInput>,
@@ -124,7 +123,6 @@ impl Window {
             ctx.insert_window(
                 hwnd,
                 WindowState {
-                    mouse_buttons: Vec::with_capacity(5),
                     activated_tx,
                     inactivated_tx,
                     mouse_input_tx,
