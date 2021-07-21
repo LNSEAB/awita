@@ -3,6 +3,7 @@ pub use gecl::{Point, Size};
 pub const DEFAULT_DPI: i32 = 96;
 
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(transparent)]
 pub struct Logical<T>(pub T);
 
@@ -23,6 +24,7 @@ impl<T> std::ops::DerefMut for Logical<T> {
 }
 
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(transparent)]
 pub struct Physical<T>(pub T);
 
@@ -43,6 +45,7 @@ impl<T> std::ops::DerefMut for Physical<T> {
 }
 
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(transparent)]
 pub struct Screen<T>(pub T);
 

@@ -4,6 +4,7 @@ use awita_windows_bindings::Windows::Win32::{
     UI::WindowsAndMessaging::*,
 };
 use once_cell::sync::OnceCell;
+use tokio::sync::{broadcast, oneshot};
 
 pub struct Builder {
     pub(crate) title: String,
@@ -42,13 +43,9 @@ impl Builder {
         self
     }
 
+    #[inline]
     pub async fn build(self) -> anyhow::Result<Window> {
-        let ui_thread = UiThread::get();
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        ui_thread.send_method(move || {
-            tx.send(Window::new(self)).ok();
-        });
-        Ok(rx.await.unwrap()?)
+        Window::new(self).await
     }
 }
 
@@ -82,14 +79,23 @@ fn window_class() -> &'static Vec<u16> {
     })
 }
 
-#[derive(Debug)]
+pub(crate) struct WindowState {
+    pub mouse_buttons: Vec<MouseButton>,
+    pub activated_tx: broadcast::Sender<()>,
+    pub inactivated_tx: broadcast::Sender<()>,
+    pub mouse_input_tx: broadcast::Sender<event::MouseInput>,
+    pub closed_tx: broadcast::Sender<()>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Window {
     hwnd: HWND,
 }
 
 impl Window {
-    fn new(builder: Builder) -> anyhow::Result<Self> {
-        unsafe {
+    async fn new(builder: Builder) -> anyhow::Result<Self> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        UiThread::get().send_method(move |ctx| unsafe {
             let title = builder
                 .title
                 .encode_utf16()
@@ -111,7 +117,66 @@ impl Window {
                 std::ptr::null_mut(),
             );
             ShowWindow(hwnd, SW_SHOW);
-            Ok(Window { hwnd })
+            let (activated_tx, _) = broadcast::channel(1);
+            let (inactivated_tx, _) = broadcast::channel(1);
+            let (mouse_input_tx, _) = broadcast::channel(32);
+            let (closed_tx, _) = broadcast::channel(1);
+            ctx.insert_window(
+                hwnd,
+                WindowState {
+                    mouse_buttons: Vec::with_capacity(5),
+                    activated_tx,
+                    inactivated_tx,
+                    mouse_input_tx,
+                    closed_tx,
+                },
+            );
+            tx.send(Window { hwnd }).ok();
+        });
+        Ok(rx.await?)
+    }
+
+    #[inline]
+    pub fn raw_handle(&self) -> *mut std::ffi::c_void {
+        self.hwnd.0 as _
+    }
+
+    async fn on_event<F, R>(&self, f: F) -> Option<R>
+    where
+        F: FnOnce(&WindowState) -> &broadcast::Sender<R> + Send + 'static,
+        R: Clone + Send + 'static,
+    {
+        let hwnd = self.hwnd.clone();
+        let (tx, rx) = oneshot::channel();
+        UiThread::get().send_method(move |ctx| {
+            if let Some(state) = ctx.get_window(hwnd) {
+                tx.send(f(&state).subscribe()).ok();
+            }
+        });
+        if let Ok(mut event_rx) = rx.await {
+            event_rx.recv().await.ok()
+        } else {
+            None
         }
+    }
+
+    #[inline]
+    pub async fn on_mouse_input(&self) -> Option<event::MouseInput> {
+        self.on_event(|state| &state.mouse_input_tx).await
+    }
+
+    #[inline]
+    pub async fn on_activated(&self) -> Option<()> {
+        self.on_event(|state| &state.activated_tx).await
+    }
+
+    #[inline]
+    pub async fn on_inactivated(&self) -> Option<()> {
+        self.on_event(|state| &state.inactivated_tx).await
+    }
+
+    #[inline]
+    pub async fn on_closed(&self) -> Option<()> {
+        self.on_event(|state| &state.closed_tx).await
     }
 }
