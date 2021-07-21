@@ -28,5 +28,6 @@ fn main() {
             MONITORINFO,
             PAINTSTRUCT,
         },
+        Windows::Win32::UI::HiDpi::*,
     );
 }

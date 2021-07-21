@@ -1,5 +1,8 @@
 use super::*;
-use awita_windows_bindings::Windows::Win32::{Foundation::*, UI::WindowsAndMessaging::*};
+use awita_windows_bindings::Windows::Win32::{
+    Foundation::*,
+    UI::{HiDpi::*, WindowsAndMessaging::*},
+};
 use std::rc::Rc;
 
 fn context() -> Rc<Context> {
@@ -84,6 +87,41 @@ unsafe fn mouse_input(
     LRESULT(0)
 }
 
+unsafe fn wm_dpi_changed(hwnd: HWND, lparam: LPARAM) -> LRESULT {
+    let rc = *(lparam.0 as *const RECT);
+    SetWindowPos(
+        hwnd,
+        HWND::NULL,
+        rc.left,
+        rc.top,
+        rc.right - rc.left,
+        rc.bottom - rc.top,
+        SWP_NOZORDER | SWP_NOACTIVATE,
+    );
+    LRESULT(0)
+}
+
+unsafe fn wm_get_dpi_scaled_size(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    let prev_dpi = GetDpiForWindow(hwnd) as i32;
+    let next_dpi = wparam.0 as i32;
+    let mut rc = RECT::default();
+    GetClientRect(hwnd, &mut rc);
+    let size = Physical(Size::new(
+        (rc.right * next_dpi / prev_dpi) as u32,
+        (rc.bottom * next_dpi / prev_dpi) as u32,
+    ));
+    let size = utility::adjust_window_size(
+        size,
+        WINDOW_STYLE(GetWindowLongPtrW(hwnd, GWL_STYLE) as _),
+        WINDOW_EX_STYLE(GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as _),
+        next_dpi as _,
+    );
+    let mut ret = (lparam.0 as *mut SIZE).as_mut().unwrap();
+    ret.cx = size.width as _;
+    ret.cy = size.height as _;
+    LRESULT(1)
+}
+
 unsafe fn wm_activate(hwnd: HWND, wparam: WPARAM) -> LRESULT {
     if let Some(window) = context().get_window(hwnd) {
         if (wparam.0 as u32 & WA_ACTIVE) != 0 || (wparam.0 as u32 & WA_CLICKACTIVE) != 0 {
@@ -104,6 +142,11 @@ unsafe fn wm_destroy(hwnd: HWND) -> LRESULT {
         PostQuitMessage(0);
     }
     LRESULT(0)
+}
+
+unsafe fn wm_nc_create(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    EnableNonClientDpiScaling(hwnd);
+    DefWindowProcW(hwnd, WM_NCCREATE, wparam, lparam)
 }
 
 pub(crate) unsafe extern "system" fn window_proc(
@@ -169,8 +212,11 @@ pub(crate) unsafe extern "system" fn window_proc(
             wparam,
             lparam,
         ),
+        WM_DPICHANGED => wm_dpi_changed(hwnd, lparam),
+        WM_GETDPISCALEDSIZE => wm_get_dpi_scaled_size(hwnd, wparam, lparam),
         WM_ACTIVATE => wm_activate(hwnd, wparam),
         WM_DESTROY => wm_destroy(hwnd),
+        WM_NCCREATE => wm_nc_create(hwnd, wparam, lparam),
         _ => DefWindowProcW(hwnd, msg, wparam, lparam),
     });
     match ret {

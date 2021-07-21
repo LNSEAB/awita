@@ -1,7 +1,9 @@
 use super::*;
 use awita_windows_bindings::Windows::Win32::{
-    Foundation::*, Graphics::Gdi::*, System::LibraryLoader::GetModuleHandleW,
-    UI::WindowsAndMessaging::*,
+    Foundation::*,
+    Graphics::Gdi::*,
+    System::LibraryLoader::GetModuleHandleW,
+    UI::{HiDpi::*, WindowsAndMessaging::*},
 };
 use once_cell::sync::OnceCell;
 use tokio::sync::{broadcast, oneshot};
@@ -79,6 +81,21 @@ fn window_class() -> &'static Vec<u16> {
     })
 }
 
+fn get_dpi_from_point(pt: ScreenPoint<i32>) -> u32 {
+    unsafe {
+        let mut dpi_x = 0;
+        let mut _dpi_y = 0;
+        GetDpiForMonitor(
+            MonitorFromPoint(POINT { x: pt.x, y: pt.y }, MONITOR_DEFAULTTONEAREST),
+            MDT_DEFAULT,
+            &mut dpi_x,
+            &mut _dpi_y,
+        )
+        .unwrap();
+        dpi_x
+    }
+}
+
 pub(crate) struct WindowState {
     pub activated_tx: broadcast::Sender<()>,
     pub inactivated_tx: broadcast::Sender<()>,
@@ -95,12 +112,15 @@ impl Window {
     async fn new(builder: Builder) -> anyhow::Result<Self> {
         let (tx, rx) = tokio::sync::oneshot::channel();
         UiThread::get().send_method(move |ctx| unsafe {
+            let dpi = get_dpi_from_point(builder.position);
             let title = builder
                 .title
                 .encode_utf16()
                 .chain(Some(0))
                 .collect::<Vec<_>>();
-            let size = builder.size.to_physical(DEFAULT_DPI as _);
+            let size = builder.size.to_physical(dpi);
+            let size =
+                utility::adjust_window_size(size, WS_OVERLAPPEDWINDOW, WINDOW_EX_STYLE(0), dpi);
             let hwnd = CreateWindowExW(
                 WINDOW_EX_STYLE(0),
                 PWSTR(window_class().as_ptr() as _),

@@ -3,6 +3,7 @@ pub mod event;
 pub mod geometry;
 mod procedure;
 mod ui_thread;
+mod utility;
 pub mod window;
 
 pub use device::*;

@@ -52,10 +52,10 @@ impl MouseButton {
         unsafe { std::mem::transmute(1u32 << (3 + n)) }
     }
 
-	#[inline]
-	fn from_u32(n: u32) -> Self {
+    #[inline]
+    fn from_u32(n: u32) -> Self {
         unsafe { std::mem::transmute(n) }
-	}
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -75,9 +75,9 @@ impl MouseButtons {
 }
 
 impl From<u32> for MouseButtons {
-	fn from(src: u32) -> Self {
-		MouseButtons(src)
-	}
+    fn from(src: u32) -> Self {
+        MouseButtons(src)
+    }
 }
 
 impl std::fmt::Debug for MouseButtons {

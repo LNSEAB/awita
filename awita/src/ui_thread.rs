@@ -1,6 +1,8 @@
 use crate::window::WindowState;
 use awita_windows_bindings::Windows::Win32::{
-    Foundation::*, System::Threading::*, UI::WindowsAndMessaging::*,
+    Foundation::*,
+    System::Threading::*,
+    UI::{HiDpi::*, WindowsAndMessaging::*},
 };
 use once_cell::sync::OnceCell;
 use std::cell::{Ref, RefCell, RefMut};
@@ -118,6 +120,7 @@ fn run() -> UiThread {
     let (tx, rx) = mpsc::unbounded_channel();
     let (id_tx, id_rx) = std::sync::mpsc::channel();
     let thread = std::thread::spawn(move || unsafe {
+        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         IsGUIThread(true);
         CONTEXT.with(|ctx| {
             *ctx.borrow_mut() = Some(Context::new(rx));
