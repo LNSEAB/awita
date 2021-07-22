@@ -1,4 +1,20 @@
 use super::*;
+use tokio::sync::broadcast;
+
+pub struct Receiver<R>(pub(crate) Option<broadcast::Receiver<R>>);
+
+impl<R> Receiver<R>
+where
+    R: Clone,
+{
+    pub async fn recv(&mut self) -> Option<R> {
+        if self.0.is_none() {
+            return None;
+        }
+        let rx = self.0.as_mut().unwrap();
+        rx.recv().await.ok()
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct MouseInput {

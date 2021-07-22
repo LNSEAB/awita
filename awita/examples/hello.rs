@@ -1,14 +1,9 @@
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
     let window = awita::window::Builder::new()
         .title("awita hello")
         .build()
         .await?;
-    tokio::spawn(async move {
-        while let Some(mouse) = window.on_mouse_input().await {
-            println!("mouse_input: {:?}", mouse);
-        }
-    });
-    awita::join().unwrap();
+    window.closed_receiver().await.recv().await.unwrap();
     Ok(())
 }

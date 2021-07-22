@@ -76,7 +76,7 @@ unsafe fn mouse_input(
             buttons: get_mouse_buttons(wparam),
         };
         window
-            .mouse_input_tx
+            .mouse_input_channel
             .send(event::MouseInput {
                 button,
                 button_state,
@@ -98,6 +98,10 @@ unsafe fn wm_dpi_changed(hwnd: HWND, lparam: LPARAM) -> LRESULT {
         rc.bottom - rc.top,
         SWP_NOZORDER | SWP_NOACTIVATE,
     );
+    let dpi = GetDpiForWindow(hwnd);
+    if let Some(window) = context().get_window(hwnd) {
+        window.dpi_changed_channel.send(dpi).ok();
+    }
     LRESULT(0)
 }
 
@@ -124,10 +128,11 @@ unsafe fn wm_get_dpi_scaled_size(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> 
 
 unsafe fn wm_activate(hwnd: HWND, wparam: WPARAM) -> LRESULT {
     if let Some(window) = context().get_window(hwnd) {
-        if (wparam.0 as u32 & WA_ACTIVE) != 0 || (wparam.0 as u32 & WA_CLICKACTIVE) != 0 {
-            window.activated_tx.send(()).ok();
+        let value = loword(wparam.0 as _) as u32;
+        if value == 0 {
+            window.inactivated_channel.send(()).ok();
         } else {
-            window.inactivated_tx.send(()).ok();
+            window.activated_channel.send(()).ok();
         }
     }
     LRESULT(0)
@@ -135,7 +140,7 @@ unsafe fn wm_activate(hwnd: HWND, wparam: WPARAM) -> LRESULT {
 
 unsafe fn wm_destroy(hwnd: HWND) -> LRESULT {
     if let Some(window) = context().get_window(hwnd) {
-        window.closed_tx.send(()).ok();
+        window.closed_channel.send(()).ok();
     }
     context().remove_window(hwnd);
     if context().window_map_is_empty() {

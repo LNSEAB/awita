@@ -97,10 +97,11 @@ fn get_dpi_from_point(pt: ScreenPoint<i32>) -> u32 {
 }
 
 pub(crate) struct WindowState {
-    pub activated_tx: broadcast::Sender<()>,
-    pub inactivated_tx: broadcast::Sender<()>,
-    pub mouse_input_tx: broadcast::Sender<event::MouseInput>,
-    pub closed_tx: broadcast::Sender<()>,
+    pub mouse_input_channel: broadcast::Sender<event::MouseInput>,
+    pub activated_channel: broadcast::Sender<()>,
+    pub inactivated_channel: broadcast::Sender<()>,
+    pub dpi_changed_channel: broadcast::Sender<u32>,
+    pub closed_channel: broadcast::Sender<()>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -136,17 +137,14 @@ impl Window {
                 std::ptr::null_mut(),
             );
             ShowWindow(hwnd, SW_SHOW);
-            let (activated_tx, _) = broadcast::channel(1);
-            let (inactivated_tx, _) = broadcast::channel(1);
-            let (mouse_input_tx, _) = broadcast::channel(32);
-            let (closed_tx, _) = broadcast::channel(1);
             ctx.insert_window(
                 hwnd,
                 WindowState {
-                    activated_tx,
-                    inactivated_tx,
-                    mouse_input_tx,
-                    closed_tx,
+                    mouse_input_channel: broadcast::channel(64).0,
+                    activated_channel: broadcast::channel(1).0,
+                    inactivated_channel: broadcast::channel(1).0,
+                    dpi_changed_channel: broadcast::channel(1).0,
+                    closed_channel: broadcast::channel(1).0,
                 },
             );
             tx.send(Window { hwnd }).ok();
@@ -159,7 +157,7 @@ impl Window {
         self.hwnd.0 as _
     }
 
-    async fn on_event<F, R>(&self, f: F) -> Option<R>
+    async fn on_event<F, R>(&self, f: F) -> Option<broadcast::Receiver<R>>
     where
         F: FnOnce(&WindowState) -> &broadcast::Sender<R> + Send + 'static,
         R: Clone + Send + 'static,
@@ -168,33 +166,34 @@ impl Window {
         let (tx, rx) = oneshot::channel();
         UiThread::get().send_method(move |ctx| {
             if let Some(state) = ctx.get_window(hwnd) {
-                tx.send(f(&state).subscribe()).ok();
+                tx.send(f(&state).subscribe()).unwrap();
             }
         });
-        if let Ok(mut event_rx) = rx.await {
-            event_rx.recv().await.ok()
-        } else {
-            None
-        }
+        rx.await.ok()
     }
 
     #[inline]
-    pub async fn on_mouse_input(&self) -> Option<event::MouseInput> {
-        self.on_event(|state| &state.mouse_input_tx).await
+    pub async fn mouse_input_receiver(&self) -> event::Receiver<event::MouseInput> {
+        event::Receiver(self.on_event(|state| &state.mouse_input_channel).await)
     }
 
     #[inline]
-    pub async fn on_activated(&self) -> Option<()> {
-        self.on_event(|state| &state.activated_tx).await
+    pub async fn activated_receiver(&self) -> event::Receiver<()> {
+        event::Receiver(self.on_event(|state| &state.activated_channel).await)
     }
 
     #[inline]
-    pub async fn on_inactivated(&self) -> Option<()> {
-        self.on_event(|state| &state.inactivated_tx).await
+    pub async fn inactivated_receiver(&self) -> event::Receiver<()> {
+        event::Receiver(self.on_event(|state| &state.inactivated_channel).await)
     }
 
     #[inline]
-    pub async fn on_closed(&self) -> Option<()> {
-        self.on_event(|state| &state.closed_tx).await
+    pub async fn dpi_changed_receiver(&self) -> event::Receiver<u32> {
+        event::Receiver(self.on_event(|state| &state.dpi_changed_channel).await)
+    }
+
+    #[inline]
+    pub async fn closed_receiver(&self) -> event::Receiver<()> {
+        event::Receiver(self.on_event(|state| &state.closed_channel).await)
     }
 }
