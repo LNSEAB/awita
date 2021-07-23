@@ -11,3 +11,8 @@ pub use geometry::*;
 pub use window::Window;
 
 use ui_thread::*;
+
+#[inline]
+pub async fn finished() {
+    ui_thread::UiThread::finished().await;
+}

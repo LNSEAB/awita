@@ -25,9 +25,11 @@ fn main() {
             EndPaint,
             GetStockObject,
             RedrawWindow,
+            ScreenToClient,
             MONITORINFO,
             PAINTSTRUCT,
         },
         Windows::Win32::UI::HiDpi::*,
+        Windows::Win32::UI::Controls::WM_MOUSELEAVE,
     );
 }

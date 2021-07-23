@@ -1,7 +1,8 @@
 use super::*;
 use awita_windows_bindings::Windows::Win32::{
     Foundation::*,
-    UI::{HiDpi::*, WindowsAndMessaging::*},
+    Graphics::Gdi::*,
+    UI::{HiDpi::*, WindowsAndMessaging::*, KeyboardAndMouseInput::*, Controls::*},
 };
 use std::rc::Rc;
 
@@ -63,6 +64,46 @@ fn get_mouse_buttons(wparam: WPARAM) -> MouseButtons {
     buttons.into()
 }
 
+unsafe fn wm_mouse_move(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    let context = context();
+    let window = match context.get_window(hwnd) {
+        Some(window) => window,
+        None => return DefWindowProcW(hwnd, WM_MOUSEMOVE, wparam, lparam),
+    };
+    let state = MouseState {
+        position: lparam_to_point(lparam),
+        buttons: get_mouse_buttons(wparam),
+    };
+    if context.entered_cursor_window.get().is_none() {
+        TrackMouseEvent(&mut TRACKMOUSEEVENT {
+            cbSize: std::mem::size_of::<TRACKMOUSEEVENT>() as _,
+            dwFlags: TME_LEAVE,
+            ..Default::default()
+        });
+        context.entered_cursor_window.set(Some(hwnd));
+        window.cursor_entered_channel.send(state).ok();
+    } else {
+        window.cursor_moved_chennel.send(state).ok();
+    }
+    LRESULT(0)
+}
+
+unsafe fn wm_mouse_leave(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    let context = context();
+    let window = match context.get_window(hwnd) {
+        Some(window) => window,
+        None => return DefWindowProcW(hwnd, WM_MOUSELEAVE, wparam, lparam),
+    };
+    let mut position = POINT::default();
+    GetCursorPos(&mut position);
+    ScreenToClient(hwnd, &mut position);
+    window.cursor_leaved_channel.send(MouseState {
+        position: Physical(Point::new(position.x, position.y)),
+        buttons: get_mouse_buttons(wparam),
+    }).ok();
+    LRESULT(0)
+}
+
 unsafe fn mouse_input(
     hwnd: HWND,
     button: MouseButton,
@@ -85,6 +126,53 @@ unsafe fn mouse_input(
             .ok();
     }
     LRESULT(0)
+}
+
+unsafe fn wm_char(hwnd: HWND, wparam: WPARAM) -> LRESULT {
+    if let Some(window) = context().get_window(hwnd) {
+        if let Some(c) = char::from_u32(wparam.0 as _) {
+            window.char_input_channel.send(c).ok();
+        }
+    }
+    LRESULT(0)
+}
+
+unsafe fn wm_move(hwnd: HWND, lparam: LPARAM) -> LRESULT {
+    let context = context();
+    let window = match context.get_window(hwnd) {
+        Some(window) => window,
+        None => return LRESULT(0),
+    };
+    let position = lparam_to_point(lparam);
+    window.moved_channel.send(position).ok();
+    LRESULT(0)
+}
+
+unsafe fn wm_size(hwnd: HWND, lparam: LPARAM) -> LRESULT {
+    let value = lparam.0 as i32;
+    let size = Physical(Size::new(loword(value) as u32, hiword(value) as u32));
+    if let Some(window) = context().get_window(hwnd) {
+        window.sizing_channel.send(size).ok();
+    }
+    LRESULT(0)
+}
+
+unsafe fn wm_enter_size_move(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    context().resizing.set(true);
+    DefWindowProcW(hwnd, WM_ENTERSIZEMOVE, wparam, lparam)
+}
+
+unsafe fn wm_exit_size_move(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    context().resizing.set(false);
+    let mut rc = RECT::default();
+    GetClientRect(hwnd, &mut rc);
+    if let Some(window) = context().get_window(hwnd) {
+        window
+            .sized_channel
+            .send(Physical(Size::new(rc.right as u32, rc.bottom as u32)))
+            .ok();
+    }
+    DefWindowProcW(hwnd, WM_EXITSIZEMOVE, wparam, lparam)
 }
 
 unsafe fn wm_dpi_changed(hwnd: HWND, lparam: LPARAM) -> LRESULT {
@@ -161,6 +249,8 @@ pub(crate) unsafe extern "system" fn window_proc(
     lparam: LPARAM,
 ) -> LRESULT {
     let ret = std::panic::catch_unwind(|| match msg {
+        WM_MOUSEMOVE => wm_mouse_move(hwnd, wparam, lparam),
+        WM_MOUSELEAVE => wm_mouse_leave(hwnd, wparam, lparam),
         WM_LBUTTONDOWN => mouse_input(
             hwnd,
             MouseButton::Left,
@@ -217,6 +307,11 @@ pub(crate) unsafe extern "system" fn window_proc(
             wparam,
             lparam,
         ),
+        WM_CHAR => wm_char(hwnd, wparam),
+        WM_MOVE => wm_move(hwnd, lparam),
+        WM_SIZE => wm_size(hwnd, lparam),
+        WM_ENTERSIZEMOVE => wm_enter_size_move(hwnd, wparam, lparam),
+        WM_EXITSIZEMOVE => wm_exit_size_move(hwnd, wparam, lparam),
         WM_DPICHANGED => wm_dpi_changed(hwnd, lparam),
         WM_GETDPISCALEDSIZE => wm_get_dpi_scaled_size(hwnd, wparam, lparam),
         WM_ACTIVATE => wm_activate(hwnd, wparam),

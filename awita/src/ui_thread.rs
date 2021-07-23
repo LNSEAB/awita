@@ -5,39 +5,37 @@ use awita_windows_bindings::Windows::Win32::{
     UI::{HiDpi::*, WindowsAndMessaging::*},
 };
 use once_cell::sync::OnceCell;
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::RwLock;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 
 const WM_AWITA_METHOD: u32 = WM_APP + 1;
 
+static UI_THREAD: OnceCell<UiThread> = OnceCell::new();
+
 pub(crate) struct UiThread {
-    thread: RwLock<Option<std::thread::JoinHandle<()>>>,
     thread_id: u32,
     method_tx: mpsc::UnboundedSender<Box<dyn FnOnce(&Context) + Send>>,
+    finish_rx: watch::Receiver<bool>,
 }
 
 impl UiThread {
-    pub fn get() -> &'static UiThread {
-        static UI_THREAD: OnceCell<UiThread> = OnceCell::new();
+    pub(crate) fn get() -> &'static UiThread {
         UI_THREAD.get_or_init(|| run())
     }
 
-    pub fn send_method(&self, method: impl FnOnce(&Context) + Send + 'static) {
+    pub(crate) fn send_method(&self, method: impl FnOnce(&Context) + Send + 'static) {
         unsafe {
             PostThreadMessageW(self.thread_id, WM_AWITA_METHOD, WPARAM(0), LPARAM(0));
         }
         self.method_tx.send(Box::new(method)).ok();
     }
 
-    pub fn join(&self) -> Result<(), Box<dyn std::any::Any + Send>> {
-        let thread = {
-            let mut thread = self.thread.write().unwrap();
-            thread.take().unwrap()
-        };
-        thread.join()
+    pub async fn finished() {
+        let mut finish_rx = Self::get().finish_rx.clone();
+        finish_rx.changed().await.unwrap();
     }
 }
 
@@ -46,6 +44,8 @@ pub(crate) struct Context {
     method_rx: RefCell<mpsc::UnboundedReceiver<Box<dyn FnOnce(&Context) + Send>>>,
     window_map: RefCell<HashMap<isize, WindowState>>,
     unwind: RefCell<Option<Box<dyn std::any::Any + Send>>>,
+    pub(crate) resizing: Cell<bool>,
+    pub(crate) entered_cursor_window: Cell<Option<HWND>>,
 }
 
 impl Context {
@@ -58,6 +58,8 @@ impl Context {
             method_rx: RefCell::new(method_rx),
             window_map: RefCell::new(HashMap::new()),
             unwind: RefCell::new(None),
+            resizing: Cell::new(false),
+            entered_cursor_window: Cell::new(None),
         })
     }
 
@@ -119,7 +121,8 @@ fn context() -> Rc<Context> {
 fn run() -> UiThread {
     let (tx, rx) = mpsc::unbounded_channel();
     let (id_tx, id_rx) = std::sync::mpsc::channel();
-    let thread = std::thread::spawn(move || unsafe {
+    let (finish_tx, finish_rx) = watch::channel(false);
+    std::thread::spawn(move || unsafe {
         SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         IsGUIThread(true);
         CONTEXT.with(|ctx| {
@@ -142,10 +145,11 @@ fn run() -> UiThread {
                 std::panic::resume_unwind(e);
             }
         }
+        finish_tx.send(true).ok();
     });
     UiThread {
-        thread: RwLock::new(Some(thread)),
         thread_id: id_rx.recv().unwrap(),
         method_tx: tx,
+        finish_rx,
     }
 }

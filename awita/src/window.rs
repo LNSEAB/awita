@@ -97,7 +97,14 @@ fn get_dpi_from_point(pt: ScreenPoint<i32>) -> u32 {
 }
 
 pub(crate) struct WindowState {
+    pub cursor_entered_channel: broadcast::Sender<MouseState>,
+    pub cursor_leaved_channel: broadcast::Sender<MouseState>,
+    pub cursor_moved_chennel: broadcast::Sender<MouseState>,
     pub mouse_input_channel: broadcast::Sender<event::MouseInput>,
+    pub char_input_channel: broadcast::Sender<char>,
+    pub moved_channel: broadcast::Sender<PhysicalPoint<i32>>,
+    pub sizing_channel: broadcast::Sender<PhysicalSize<u32>>,
+    pub sized_channel: broadcast::Sender<PhysicalSize<u32>>,
     pub activated_channel: broadcast::Sender<()>,
     pub inactivated_channel: broadcast::Sender<()>,
     pub dpi_changed_channel: broadcast::Sender<u32>,
@@ -140,7 +147,14 @@ impl Window {
             ctx.insert_window(
                 hwnd,
                 WindowState {
+                    cursor_entered_channel: broadcast::channel(8).0,
+                    cursor_leaved_channel: broadcast::channel(8).0,
+                    cursor_moved_chennel: broadcast::channel(128).0,
                     mouse_input_channel: broadcast::channel(64).0,
+                    char_input_channel: broadcast::channel(256).0,
+                    moved_channel: broadcast::channel(128).0,
+                    sizing_channel: broadcast::channel(128).0,
+                    sized_channel: broadcast::channel(1).0,
                     activated_channel: broadcast::channel(1).0,
                     inactivated_channel: broadcast::channel(1).0,
                     dpi_changed_channel: broadcast::channel(1).0,
@@ -157,7 +171,7 @@ impl Window {
         self.hwnd.0 as _
     }
 
-    async fn on_event<F, R>(&self, f: F) -> Option<broadcast::Receiver<R>>
+    async fn on_event<F, R>(&self, f: F) -> event::Receiver<R>
     where
         F: FnOnce(&WindowState) -> &broadcast::Sender<R> + Send + 'static,
         R: Clone + Send + 'static,
@@ -169,31 +183,61 @@ impl Window {
                 tx.send(f(&state).subscribe()).unwrap();
             }
         });
-        rx.await.ok()
+        event::Receiver(rx.await.ok())
+    }
+
+    #[inline]
+    pub async fn cursor_entered_channel(&self) -> event::Receiver<MouseState> {
+        self.on_event(|state| &state.cursor_entered_channel).await
+    }
+
+    #[inline]
+    pub async fn cursor_leaved_channel(&self) -> event::Receiver<MouseState> {
+        self.on_event(|state| &state.cursor_leaved_channel).await
+    }
+
+    #[inline]
+    pub async fn cursor_moved_chennel(&self) -> event::Receiver<MouseState> {
+        self.on_event(|state| &state.cursor_moved_chennel).await
     }
 
     #[inline]
     pub async fn mouse_input_receiver(&self) -> event::Receiver<event::MouseInput> {
-        event::Receiver(self.on_event(|state| &state.mouse_input_channel).await)
+        self.on_event(|state| &state.mouse_input_channel).await
+    }
+
+    #[inline]
+    pub async fn char_input_receiver(&self) -> event::Receiver<char> {
+        self.on_event(|state| &state.char_input_channel).await
+    }
+
+    #[inline]
+    pub async fn sizing_receiver(&self) -> event::Receiver<PhysicalSize<u32>> {
+        self.on_event(|state| &state.sizing_channel).await
+    }
+
+    #[inline]
+    pub async fn sized_receiver(&self) -> event::Receiver<PhysicalSize<u32>> {
+        self.on_event(|state| &state.sized_channel).await
     }
 
     #[inline]
     pub async fn activated_receiver(&self) -> event::Receiver<()> {
-        event::Receiver(self.on_event(|state| &state.activated_channel).await)
+        self.on_event(|state| &state.activated_channel).await
     }
 
     #[inline]
     pub async fn inactivated_receiver(&self) -> event::Receiver<()> {
-        event::Receiver(self.on_event(|state| &state.inactivated_channel).await)
+        self.on_event(|state| &state.inactivated_channel).await
     }
 
     #[inline]
     pub async fn dpi_changed_receiver(&self) -> event::Receiver<u32> {
-        event::Receiver(self.on_event(|state| &state.dpi_changed_channel).await)
+        self.on_event(|state| &state.dpi_changed_channel).await
     }
 
     #[inline]
     pub async fn closed_receiver(&self) -> event::Receiver<()> {
-        event::Receiver(self.on_event(|state| &state.closed_channel).await)
+        self.on_event(|state| &state.closed_channel).await
     }
 }
