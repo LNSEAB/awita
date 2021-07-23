@@ -3,15 +3,16 @@ use awita_windows_bindings::Windows::Win32::{
     Foundation::*,
     Graphics::Gdi::*,
     System::LibraryLoader::GetModuleHandleW,
-    UI::{HiDpi::*, WindowsAndMessaging::*},
+    UI::{HiDpi::*, Shell::*, WindowsAndMessaging::*},
 };
 use once_cell::sync::OnceCell;
 use tokio::sync::{broadcast, oneshot};
 
 pub struct Builder {
-    pub(crate) title: String,
-    pub(crate) position: ScreenPoint<i32>,
-    pub(crate) size: Box<dyn ToPhysical<Value = u32, Output = Size<u32>> + Send>,
+    title: String,
+    position: ScreenPoint<i32>,
+    size: Box<dyn ToPhysical<Value = u32, Output = Size<u32>> + Send>,
+    accept_drop_files: bool,
 }
 
 impl Builder {
@@ -21,6 +22,7 @@ impl Builder {
             title: "".into(),
             position: Screen(Point::new(0, 0)),
             size: Box::new(Logical(Size::new(640, 480))),
+            accept_drop_files: false,
         }
     }
 
@@ -42,6 +44,12 @@ impl Builder {
         S: ToPhysical<Value = u32, Output = Size<u32>> + Send + 'static,
     {
         self.size = Box::new(size);
+        self
+    }
+
+    #[inline]
+    pub fn accept_drop_files(mut self, flag: bool) -> Self {
+        self.accept_drop_files = flag;
         self
     }
 
@@ -102,12 +110,13 @@ pub(crate) struct WindowState {
     pub cursor_moved_chennel: broadcast::Sender<MouseState>,
     pub mouse_input_channel: broadcast::Sender<event::MouseInput>,
     pub char_input_channel: broadcast::Sender<char>,
-    pub moved_channel: broadcast::Sender<PhysicalPoint<i32>>,
+    pub moved_channel: broadcast::Sender<ScreenPoint<i32>>,
     pub sizing_channel: broadcast::Sender<PhysicalSize<u32>>,
     pub sized_channel: broadcast::Sender<PhysicalSize<u32>>,
     pub activated_channel: broadcast::Sender<()>,
     pub inactivated_channel: broadcast::Sender<()>,
     pub dpi_changed_channel: broadcast::Sender<u32>,
+    pub drop_files_channel: broadcast::Sender<event::DropFiles>,
     pub closed_channel: broadcast::Sender<()>,
 }
 
@@ -143,6 +152,7 @@ impl Window {
                 GetModuleHandleW(None),
                 std::ptr::null_mut(),
             );
+            DragAcceptFiles(hwnd, builder.accept_drop_files);
             ShowWindow(hwnd, SW_SHOW);
             ctx.insert_window(
                 hwnd,
@@ -158,6 +168,7 @@ impl Window {
                     activated_channel: broadcast::channel(1).0,
                     inactivated_channel: broadcast::channel(1).0,
                     dpi_changed_channel: broadcast::channel(1).0,
+                    drop_files_channel: broadcast::channel(1).0,
                     closed_channel: broadcast::channel(1).0,
                 },
             );
@@ -187,17 +198,17 @@ impl Window {
     }
 
     #[inline]
-    pub async fn cursor_entered_channel(&self) -> event::Receiver<MouseState> {
+    pub async fn cursor_entered_receiver(&self) -> event::Receiver<MouseState> {
         self.on_event(|state| &state.cursor_entered_channel).await
     }
 
     #[inline]
-    pub async fn cursor_leaved_channel(&self) -> event::Receiver<MouseState> {
+    pub async fn cursor_leaved_receiver(&self) -> event::Receiver<MouseState> {
         self.on_event(|state| &state.cursor_leaved_channel).await
     }
 
     #[inline]
-    pub async fn cursor_moved_chennel(&self) -> event::Receiver<MouseState> {
+    pub async fn cursor_moved_receiver(&self) -> event::Receiver<MouseState> {
         self.on_event(|state| &state.cursor_moved_chennel).await
     }
 
@@ -209,6 +220,11 @@ impl Window {
     #[inline]
     pub async fn char_input_receiver(&self) -> event::Receiver<char> {
         self.on_event(|state| &state.char_input_channel).await
+    }
+
+    #[inline]
+    pub async fn moved_receiver(&self) -> event::Receiver<ScreenPoint<i32>> {
+        self.on_event(|state| &state.moved_channel).await
     }
 
     #[inline]
@@ -234,6 +250,11 @@ impl Window {
     #[inline]
     pub async fn dpi_changed_receiver(&self) -> event::Receiver<u32> {
         self.on_event(|state| &state.dpi_changed_channel).await
+    }
+
+    #[inline]
+    pub async fn drop_files_receiver(&self) -> event::Receiver<event::DropFiles> {
+        self.on_event(|state| &state.drop_files_channel).await
     }
 
     #[inline]

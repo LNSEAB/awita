@@ -13,6 +13,19 @@
 			"console": "integratedTerminal",
 			"preLaunchTask": "build hello",
 			"internalConsoleOptions": "openOnSessionStart",
-		}
+		},
+		{
+			"name": "events",
+			"type": "cppvsdbg",
+			"request": "launch",
+			"program": "${workspaceFolder}/target/debug/examples/events.exe",
+			"args": [],
+			"stopAtEntry": false,
+			"cwd": "${workspaceFolder}/awita",
+			"environment": [],
+			"console": "integratedTerminal",
+			"preLaunchTask": "build events",
+			"internalConsoleOptions": "openOnSessionStart",
+		},
 	]
 }

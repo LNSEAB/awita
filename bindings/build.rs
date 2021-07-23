@@ -2,6 +2,14 @@ fn main() {
     windows::build!(
         Windows::Win32::UI::WindowsAndMessaging::*,
         Windows::Win32::UI::KeyboardAndMouseInput::*,
+        Windows::Win32::UI::Shell::{
+            DragAcceptFiles,
+            DragQueryFileW,
+            DragQueryPoint,
+            DragFinish
+        },
+        Windows::Win32::UI::HiDpi::*,
+        Windows::Win32::UI::Controls::WM_MOUSELEAVE,
         Windows::Win32::System::LibraryLoader::GetModuleHandleW,
         Windows::Win32::System::Threading::GetCurrentThreadId,
         Windows::Win32::System::Diagnostics::Debug::*,
@@ -29,7 +37,5 @@ fn main() {
             MONITORINFO,
             PAINTSTRUCT,
         },
-        Windows::Win32::UI::HiDpi::*,
-        Windows::Win32::UI::Controls::WM_MOUSELEAVE,
     );
 }

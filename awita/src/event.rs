@@ -22,3 +22,9 @@ pub struct MouseInput {
     pub button_state: ButtonState,
     pub mouse_state: MouseState,
 }
+
+#[derive(Clone, Debug)]
+pub struct DropFiles {
+    pub position: PhysicalPoint<i32>,
+    pub files: Vec<std::path::PathBuf>,
+}
