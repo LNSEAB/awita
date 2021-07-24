@@ -1,4 +1,4 @@
-#[tokio::main(flavor = "current_thread")]
+#[tokio::main]
 async fn main() -> anyhow::Result<()> {
     awita::window::Builder::new()
         .title("awita hello")
