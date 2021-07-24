@@ -12,6 +12,7 @@ pub struct Builder {
     title: String,
     position: ScreenPoint<i32>,
     size: Box<dyn ToPhysical<Value = u32, Output = Size<u32>> + Send>,
+    visibility: bool,
     accept_drop_files: bool,
 }
 
@@ -22,6 +23,7 @@ impl Builder {
             title: "".into(),
             position: Screen(Point::new(0, 0)),
             size: Box::new(Logical(Size::new(640, 480))),
+            visibility: true,
             accept_drop_files: false,
         }
     }
@@ -44,6 +46,12 @@ impl Builder {
         S: ToPhysical<Value = u32, Output = Size<u32>> + Send + 'static,
     {
         self.size = Box::new(size);
+        self
+    }
+
+    #[inline]
+    pub fn visible(mut self, visibility: bool) -> Self {
+        self.visibility = visibility;
         self
     }
 
@@ -105,6 +113,7 @@ fn get_dpi_from_point(pt: ScreenPoint<i32>) -> u32 {
 }
 
 pub(crate) struct WindowState {
+    pub draw_channel: broadcast::Sender<()>,
     pub cursor_entered_channel: broadcast::Sender<MouseState>,
     pub cursor_leaved_channel: broadcast::Sender<MouseState>,
     pub cursor_moved_chennel: broadcast::Sender<MouseState>,
@@ -159,6 +168,7 @@ impl Window {
             ctx.insert_window(
                 hwnd,
                 WindowState {
+                    draw_channel: broadcast::channel(8).0,
                     cursor_entered_channel: broadcast::channel(8).0,
                     cursor_leaved_channel: broadcast::channel(8).0,
                     cursor_moved_chennel: broadcast::channel(128).0,
@@ -182,6 +192,20 @@ impl Window {
     }
 
     #[inline]
+    pub fn show(&self) {
+        unsafe {
+            ShowWindowAsync(self.hwnd, SW_SHOW.0 as _);
+        }
+    }
+
+    #[inline]
+    pub fn hide(&self) {
+        unsafe {
+            ShowWindowAsync(self.hwnd, SW_HIDE.0 as _);
+        }
+    }
+
+    #[inline]
     pub fn raw_handle(&self) -> *mut std::ffi::c_void {
         self.hwnd.0 as _
     }
@@ -199,6 +223,11 @@ impl Window {
             }
         });
         event::Receiver(rx.await.ok())
+    }
+    
+    #[inline]
+    pub async fn draw_receiver(&self) -> event::Receiver<()> {
+        self.on_event(|state| &state.draw_channel).await
     }
 
     #[inline]

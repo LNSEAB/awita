@@ -64,6 +64,16 @@ fn get_mouse_buttons(wparam: WPARAM) -> MouseButtons {
     buttons.into()
 }
 
+unsafe fn wm_paint(hwnd: HWND) -> LRESULT {
+    let mut ps = PAINTSTRUCT::default();
+    BeginPaint(hwnd, &mut ps);
+    if let Some(window) = context().get_window(hwnd) {
+        window.draw_channel.send(()).ok();
+    }
+    EndPaint(hwnd, &ps);
+    LRESULT(0)
+}
+
 unsafe fn wm_mouse_move(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     let context = context();
     let window = match context.get_window(hwnd) {
@@ -321,9 +331,14 @@ unsafe fn wm_close(hwnd: HWND) -> LRESULT {
         None => return DefWindowProcW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0)),
     };
     if let Some(close_req) = window.close_request_channel.as_ref() {
-        context.runtime.block_on(async {
-            close_req.send(event::CloseRequest(hwnd)).await.ok();
+        let ret = context.runtime.block_on(async {
+            close_req.send(event::CloseRequest(hwnd)).await
         });
+        if let Err(_) = ret {
+            UiThread::get().send_method(move |_| {
+                DestroyWindow(hwnd);
+            });
+        }
     } else {
         let hwnd = hwnd.clone();
         UiThread::get().send_method(move |_| {
@@ -356,6 +371,7 @@ pub(crate) unsafe extern "system" fn window_proc(
     lparam: LPARAM,
 ) -> LRESULT {
     let ret = std::panic::catch_unwind(|| match msg {
+        WM_PAINT => wm_paint(hwnd),
         WM_MOUSEMOVE => wm_mouse_move(hwnd, wparam, lparam),
         WM_MOUSELEAVE => wm_mouse_leave(hwnd, wparam, lparam),
         WM_LBUTTONDOWN => mouse_input(

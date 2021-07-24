@@ -5,6 +5,7 @@ async fn main() -> anyhow::Result<()> {
         .accept_drop_files(true)
         .build()
         .await?;
+    let mut draw = window.draw_receiver().await;
     let mut cursor_entered = window.cursor_entered_receiver().await;
     let mut cursor_leaved = window.cursor_leaved_receiver().await;
     let mut cursor_moved = window.cursor_moved_receiver().await;
@@ -22,6 +23,11 @@ async fn main() -> anyhow::Result<()> {
     let mut closed = window.closed_receiver().await;
     loop {
         tokio::select! {
+            v = draw.recv() => {
+                if v.is_some() {
+                    println!("draw");
+                }
+            }
             data = cursor_entered.recv() => {
                 if let Some(data) = data {
                     println!("cursor_entered: {:?}", data);
