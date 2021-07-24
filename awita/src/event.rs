@@ -1,5 +1,9 @@
 use super::*;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
+use awita_windows_bindings::Windows::Win32::{
+    Foundation::HWND,
+    UI::WindowsAndMessaging::*,
+};
 
 pub struct Receiver<R>(pub(crate) Option<broadcast::Receiver<R>>);
 
@@ -28,6 +32,36 @@ pub struct KeyInput {
     pub state: ButtonState,
     pub key_code: KeyCode,
     pub prev_state: ButtonState,
+}
+
+#[derive(Debug)]
+pub struct CloseRequest(pub(crate) HWND);
+
+impl CloseRequest {
+    #[inline]
+    pub fn close(self) {
+        UiThread::get().send_method(move |_| unsafe {
+            DestroyWindow(self.0);
+        });
+    }
+}
+
+#[derive(Debug)]
+pub struct CloseRequestReceiver {
+    rx: mpsc::Receiver<CloseRequest>,
+}
+
+impl CloseRequestReceiver {
+    pub(crate) fn new(rx: mpsc::Receiver<CloseRequest>) -> Self {
+        Self {
+            rx
+        }
+    }
+
+    #[inline]
+    pub async fn recv(&mut self) -> Option<CloseRequest> {
+        self.rx.recv().await
+    }
 }
 
 #[derive(Clone, Debug)]

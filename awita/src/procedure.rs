@@ -314,6 +314,25 @@ unsafe fn wm_drop_files(hwnd: HWND, wparam: WPARAM) -> LRESULT {
     LRESULT(0)
 }
 
+unsafe fn wm_close(hwnd: HWND) -> LRESULT {
+    let context = context();
+    let window = match context.get_window(hwnd) {
+        Some(window) => window,
+        None => return DefWindowProcW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0)),
+    };
+    if let Some(close_req) = window.close_request_channel.as_ref() {
+        context.runtime.block_on(async {
+            close_req.send(event::CloseRequest(hwnd)).await.ok();
+        });
+    } else {
+        let hwnd = hwnd.clone();
+        UiThread::get().send_method(move |_| {
+            DestroyWindow(hwnd);
+        });
+    }
+    LRESULT(0)
+}
+
 unsafe fn wm_destroy(hwnd: HWND) -> LRESULT {
     if let Some(window) = context().get_window(hwnd) {
         window.closed_channel.send(()).ok();
@@ -408,6 +427,7 @@ pub(crate) unsafe extern "system" fn window_proc(
         WM_GETDPISCALEDSIZE => wm_get_dpi_scaled_size(hwnd, wparam, lparam),
         WM_ACTIVATE => wm_activate(hwnd, wparam),
         WM_DROPFILES => wm_drop_files(hwnd, wparam),
+        WM_CLOSE => wm_close(hwnd),
         WM_DESTROY => wm_destroy(hwnd),
         WM_NCCREATE => wm_nc_create(hwnd, wparam, lparam),
         _ => DefWindowProcW(hwnd, msg, wparam, lparam),

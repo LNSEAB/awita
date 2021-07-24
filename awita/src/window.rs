@@ -6,7 +6,7 @@ use awita_windows_bindings::Windows::Win32::{
     UI::{HiDpi::*, Shell::*, WindowsAndMessaging::*},
 };
 use once_cell::sync::OnceCell;
-use tokio::sync::{broadcast, oneshot};
+use tokio::sync::{broadcast, oneshot, mpsc};
 
 pub struct Builder {
     title: String,
@@ -118,6 +118,7 @@ pub(crate) struct WindowState {
     pub inactivated_channel: broadcast::Sender<()>,
     pub dpi_changed_channel: broadcast::Sender<u32>,
     pub drop_files_channel: broadcast::Sender<event::DropFiles>,
+    pub close_request_channel: Option<mpsc::Sender<event::CloseRequest>>,
     pub closed_channel: broadcast::Sender<()>,
 }
 
@@ -171,6 +172,7 @@ impl Window {
                     inactivated_channel: broadcast::channel(1).0,
                     dpi_changed_channel: broadcast::channel(1).0,
                     drop_files_channel: broadcast::channel(1).0,
+                    close_request_channel: None,
                     closed_channel: broadcast::channel(1).0,
                 },
             );
@@ -262,6 +264,18 @@ impl Window {
     #[inline]
     pub async fn drop_files_receiver(&self) -> event::Receiver<event::DropFiles> {
         self.on_event(|state| &state.drop_files_channel).await
+    }
+
+    #[inline]
+    pub async fn close_request_receiver(&self) -> event::CloseRequestReceiver {
+        let (tx, rx) = mpsc::channel(1);
+        let hwnd = self.hwnd.clone();
+        UiThread::get().send_method(move |ctx| {
+            if let Some(mut window) = ctx.get_window_mut(hwnd) {
+                window.close_request_channel = Some(tx);
+            }
+        });
+        event::CloseRequestReceiver::new(rx)
     }
 
     #[inline]

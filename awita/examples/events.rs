@@ -17,6 +17,7 @@ async fn main() -> anyhow::Result<()> {
     let mut activated = window.activated_receiver().await;
     let mut inactivated = window.inactivated_receiver().await;
     let mut dpi_changed = window.dpi_changed_receiver().await;
+    let mut close_request = window.close_request_receiver().await;
     let mut drop_files = window.drop_files_receiver().await;
     let mut closed = window.closed_receiver().await;
     loop {
@@ -84,6 +85,12 @@ async fn main() -> anyhow::Result<()> {
             data = drop_files.recv() => {
                 if let Some(data) = data {
                     println!("drop_files: {:?}", data);
+                }
+            }
+            close_req = close_request.recv() => {
+                if let Some(close_req) = close_req {
+                    println!("close_request");
+                    close_req.close();
                 }
             }
             v = closed.recv() => {
