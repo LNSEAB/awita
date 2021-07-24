@@ -9,13 +9,14 @@ async fn main() -> anyhow::Result<()> {
     let mut cursor_leaved = window.cursor_leaved_receiver().await;
     let mut cursor_moved = window.cursor_moved_receiver().await;
     let mut mouse_input = window.mouse_input_receiver().await;
+    let mut key_input = window.key_input_receiver().await;
+    let mut char_input = window.char_input_receiver().await;
     let mut moved = window.moved_receiver().await;
     let mut sizing = window.sizing_receiver().await;
     let mut sized = window.sized_receiver().await;
     let mut activated = window.activated_receiver().await;
     let mut inactivated = window.inactivated_receiver().await;
     let mut dpi_changed = window.dpi_changed_receiver().await;
-    let mut char_input = window.char_input_receiver().await;
     let mut drop_files = window.drop_files_receiver().await;
     let mut closed = window.closed_receiver().await;
     loop {
@@ -40,6 +41,20 @@ async fn main() -> anyhow::Result<()> {
                     println!("mouse_input: {:?}", data);
                 }
             }
+            data = key_input.recv() => {
+                if let Some(data) = data {
+                    println!("key_input: {:?}", data);
+                }
+            }
+            c = char_input.recv() => {
+                if let Some(c) = c {
+                    if c.is_ascii_control() {
+                        println!("char_input: 0x{:x}", c as u32);
+                    } else {
+                        println!("char_input: {}", c);
+                    }
+                }
+            }
             data = moved.recv() => {
                 if let Some(data) = data {
                     println!("moved: {:?}", data);
@@ -61,15 +76,6 @@ async fn main() -> anyhow::Result<()> {
             v = inactivated.recv() => {
                 v.is_some().then(|| println!("inactivated"));
             }
-            c = char_input.recv() => {
-                if let Some(c) = c {
-                    if c.is_ascii_control() {
-                        println!("char_input: 0x{:x}", c as u32);
-                    } else {
-                        println!("char_input: {}", c);
-                    }
-                }
-            },
             dpi = dpi_changed.recv() => {
                 if let Some(dpi) = dpi {
                     println!("dpi_changed: {}", dpi);

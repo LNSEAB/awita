@@ -23,6 +23,13 @@ pub struct MouseInput {
     pub mouse_state: MouseState,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct KeyInput {
+    pub state: ButtonState,
+    pub key_code: KeyCode,
+    pub prev_state: ButtonState,
+}
+
 #[derive(Clone, Debug)]
 pub struct DropFiles {
     pub position: PhysicalPoint<i32>,

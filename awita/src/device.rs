@@ -75,6 +75,7 @@ impl MouseButtons {
 }
 
 impl From<u32> for MouseButtons {
+    #[inline]
     fn from(src: u32) -> Self {
         MouseButtons(src)
     }
@@ -108,6 +109,182 @@ pub struct MouseState {
     pub buttons: MouseButtons,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[repr(u32)]
+pub enum VirtualKey {
+    BackSpace = 0x08,
+    Tab = 0x09,
+    Enter = 0x0d,
+    Shift = 0x10,
+    Ctrl = 0x11,
+    Alt = 0x12,
+    Pause = 0x13,
+    CapsLock = 0x14,
+    Esc = 0x1b,
+    Space = 0x20,
+    PageUp = 0x21,
+    PageDown = 0x22,
+    End = 0x23,
+    Home = 0x24,
+    Left = 0x25,
+    Up = 0x26,
+    Right = 0x27,
+    Down = 0x28,
+    PrintScreen = 0x2c,
+    Insert = 0x2d,
+    Delete = 0x2e,
+    _0 = 0x30,
+    _1,
+    _2,
+    _3,
+    _4,
+    _5,
+    _6,
+    _7,
+    _8,
+    _9,
+    A = 0x41,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
+    I,
+    J,
+    K,
+    L,
+    M,
+    N,
+    O,
+    P,
+    Q,
+    R,
+    S,
+    T,
+    U,
+    V,
+    W,
+    X,
+    Y,
+    Z,
+    NumPad0 = 0x60,
+    NumPad1,
+    NumPad2,
+    NumPad3,
+    NumPad4,
+    NumPad5,
+    NumPad6,
+    NumPad7,
+    NumPad8,
+    NumPad9,
+    NumMul,
+    NumAdd,
+    NumDecimal,
+    NumSub,
+    NumDiv,
+    F1 = 0x70,
+    F2,
+    F3,
+    F4,
+    F5,
+    F6,
+    F7,
+    F8,
+    F9,
+    F10,
+    F11,
+    F12,
+    F13,
+    F14,
+    F15,
+    F16,
+    F17,
+    F18,
+    F19,
+    F20,
+    F21,
+    F22,
+    F23,
+    F24,
+    NumLock = 0x90,
+    ScrollLock = 0x91,
+    LShift = 0xa0,
+    RShift,
+    LCtrl = 0xa2,
+    RCtrl,
+    LAlt = 0xa4,
+    RAlt,
+}
+
+impl VirtualKeyCode {
+    #[inline]
+    pub fn from_char(c: char) -> Option<Self> {
+        if let Some(i) = ('0'..'9').position(|d| d == c) {
+            Some(Self(VirtualKey::_0 as u32 + i as u32))
+        } else if let Some(i) = ('A'..'Z').position(|d| d == c) {
+            Some(Self(VirtualKey::A as u32 + i as u32))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    pub fn f(n: u32) -> Option<Self> {
+        (n >= 1 && n <= 24).then(|| Self(VirtualKey::F1 as u32 + n - 1))
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct VirtualKeyCode(pub u32);
+
+#[derive(Clone, Copy, Debug)]
+pub struct KeyCode {
+    pub vkey: VirtualKeyCode,
+    pub scan_code: u32,
+}
+
+impl PartialEq<VirtualKey> for VirtualKeyCode {
+    #[inline]
+    fn eq(&self, other: &VirtualKey) -> bool {
+        match other {
+            VirtualKey::Shift => *self == VirtualKey::LShift || *self == VirtualKey::RShift,
+            VirtualKey::Ctrl => *self == VirtualKey::LCtrl || *self == VirtualKey::RCtrl,
+            VirtualKey::Alt => *self == VirtualKey::LAlt || *self == VirtualKey::RAlt,
+            _ => self.0 == *other as _,
+        }
+    }
+}
+
+impl PartialEq<VirtualKeyCode> for VirtualKey {
+    #[inline]
+    fn eq(&self, other: &VirtualKeyCode) -> bool {
+        other == self
+    }
+}
+
+impl PartialEq<VirtualKey> for KeyCode {
+    #[inline]
+    fn eq(&self, other: &VirtualKey) -> bool {
+        self.vkey == *other
+    }
+}
+
+impl PartialEq<KeyCode> for VirtualKey {
+    #[inline]
+    fn eq(&self, other: &KeyCode) -> bool {
+        other == self
+    }
+}
+
+impl From<VirtualKey> for VirtualKeyCode {
+    #[inline]
+    fn from(src: VirtualKey) -> Self {
+        Self(src as _)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -124,5 +301,37 @@ mod tests {
         assert!(MouseButton::Left == MouseButton::from_u32(1u32 << 0));
         assert!(MouseButton::Right == MouseButton::from_u32(1u32 << 1));
         assert!(MouseButton::Middle == MouseButton::from_u32(1u32 << 2));
+    }
+
+    #[test]
+    fn virtual_key_code_from_char() {
+        for (i, c) in ('0'..'9').enumerate() {
+            let fc = VirtualKeyCode::from_char(c).unwrap();
+            assert!(fc == VirtualKeyCode(VirtualKey::_0 as u32 + i as u32));
+        }
+        for (i, c) in ('A'..'Z').enumerate() {
+            let fc = VirtualKeyCode::from_char(c).unwrap();
+            assert!(fc == VirtualKeyCode(VirtualKey::A as u32 + i as u32));
+        }
+        assert!(VirtualKeyCode::from_char('!').is_none());
+    }
+
+    #[test]
+    fn f_keys() {
+        for i in 1u32..24 {
+            let f = VirtualKeyCode::f(i).unwrap();
+            assert!(f == VirtualKeyCode(VirtualKey::F1 as u32 + i - 1));
+        }
+        assert!(VirtualKeyCode::f(25).is_none());
+    }
+
+    #[test]
+    fn key_code_eq() {
+        assert!(VirtualKeyCode(VirtualKey::LShift as u32) == VirtualKey::Shift);
+        assert!(VirtualKeyCode(VirtualKey::RShift as u32) == VirtualKey::Shift);
+        assert!(VirtualKeyCode(VirtualKey::LCtrl as u32) == VirtualKey::Ctrl);
+        assert!(VirtualKeyCode(VirtualKey::RCtrl as u32) == VirtualKey::Ctrl);
+        assert!(VirtualKeyCode(VirtualKey::LAlt as u32) == VirtualKey::Alt);
+        assert!(VirtualKeyCode(VirtualKey::RAlt as u32) == VirtualKey::Alt);
     }
 }

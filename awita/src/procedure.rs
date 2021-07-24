@@ -133,6 +133,57 @@ unsafe fn mouse_input(
     LRESULT(0)
 }
 
+unsafe fn key_input(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    let context = context();
+    let window = match context.get_window(hwnd) {
+        Some(window) => window,
+        None => return DefWindowProcW(hwnd, msg, wparam, lparam),
+    };
+    let state = match msg {
+        WM_KEYDOWN | WM_SYSKEYDOWN => ButtonState::Pressed,
+        WM_KEYUP | WM_SYSKEYUP => ButtonState::Released,
+        _ => unreachable!(),
+    };
+    let scan_code = ((lparam.0 >> 16) & 0xff) as u32;
+    let extended = (lparam.0 >> 24) & 0x01 != 0;
+    let vkey = match wparam.0 as u32 {
+        VK_SHIFT => MapVirtualKeyW(scan_code, MAPVK_VSC_TO_VK_EX),
+        VK_CONTROL => {
+            if extended {
+                VK_RCONTROL
+            } else {
+                VK_LCONTROL
+            }
+        }
+        VK_MENU => {
+            if extended {
+                VK_RMENU
+            } else {
+                VK_LMENU
+            }
+        }
+        v => v,
+    };
+    let key_code = KeyCode {
+        vkey: VirtualKeyCode(vkey),
+        scan_code,
+    };
+    let prev_state = if (lparam.0 >> 30) & 0x01 != 0 {
+        ButtonState::Pressed
+    } else {
+        ButtonState::Released
+    };
+    window
+        .key_input_channel
+        .send(event::KeyInput {
+            state,
+            key_code,
+            prev_state,
+        })
+        .ok();
+    LRESULT(0)
+}
+
 unsafe fn wm_char(hwnd: HWND, wparam: WPARAM) -> LRESULT {
     if let Some(window) = context().get_window(hwnd) {
         if let Some(c) = char::from_u32(wparam.0 as _) {
@@ -344,6 +395,10 @@ pub(crate) unsafe extern "system" fn window_proc(
             wparam,
             lparam,
         ),
+        WM_KEYDOWN => key_input(hwnd, WM_KEYDOWN, wparam, lparam),
+        WM_KEYUP => key_input(hwnd, WM_KEYUP, wparam, lparam),
+        WM_SYSKEYDOWN => key_input(hwnd, WM_SYSKEYDOWN, wparam, lparam),
+        WM_SYSKEYUP => key_input(hwnd, WM_SYSKEYDOWN, wparam, lparam),
         WM_CHAR => wm_char(hwnd, wparam),
         WM_MOVE => wm_move(hwnd, lparam),
         WM_SIZE => wm_size(hwnd, lparam),

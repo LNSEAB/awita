@@ -109,6 +109,7 @@ pub(crate) struct WindowState {
     pub cursor_leaved_channel: broadcast::Sender<MouseState>,
     pub cursor_moved_chennel: broadcast::Sender<MouseState>,
     pub mouse_input_channel: broadcast::Sender<event::MouseInput>,
+    pub key_input_channel: broadcast::Sender<event::KeyInput>,
     pub char_input_channel: broadcast::Sender<char>,
     pub moved_channel: broadcast::Sender<ScreenPoint<i32>>,
     pub sizing_channel: broadcast::Sender<PhysicalSize<u32>>,
@@ -161,6 +162,7 @@ impl Window {
                     cursor_leaved_channel: broadcast::channel(8).0,
                     cursor_moved_chennel: broadcast::channel(128).0,
                     mouse_input_channel: broadcast::channel(64).0,
+                    key_input_channel: broadcast::channel(256).0,
                     char_input_channel: broadcast::channel(256).0,
                     moved_channel: broadcast::channel(128).0,
                     sizing_channel: broadcast::channel(128).0,
@@ -215,6 +217,11 @@ impl Window {
     #[inline]
     pub async fn mouse_input_receiver(&self) -> event::Receiver<event::MouseInput> {
         self.on_event(|state| &state.mouse_input_channel).await
+    }
+
+    #[inline]
+    pub async fn key_input_receiver(&self) -> event::Receiver<event::KeyInput> {
+        self.on_event(|state| &state.key_input_channel).await
     }
 
     #[inline]
