@@ -206,6 +206,29 @@ impl Window {
     }
 
     #[inline]
+    pub fn redraw(&self) {
+        let hwnd = self.hwnd.clone();
+        UiThread::post(move || unsafe {
+            RedrawWindow(hwnd, std::ptr::null(), HRGN::NULL, RDW_INTERNALPAINT);
+        });
+    }
+
+    #[inline]
+    pub fn close_request(&self) {
+        unsafe {
+            PostMessageW(self.hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
+        }
+    }
+
+    #[inline]
+    pub fn close(&self) {
+        let hwnd = self.hwnd.clone();
+        UiThread::post(move || unsafe {
+            DestroyWindow(hwnd);
+        });
+    }
+
+    #[inline]
     pub fn raw_handle(&self) -> *mut std::ffi::c_void {
         self.hwnd.0 as _
     }
@@ -301,6 +324,7 @@ impl Window {
         let hwnd = self.hwnd.clone();
         UiThread::post_with_context(move |ctx| {
             if let Some(mut window) = ctx.get_window_mut(hwnd) {
+                assert!(window.close_request_channel.is_none());
                 window.close_request_channel = Some(tx);
             }
         });
