@@ -335,13 +335,13 @@ unsafe fn wm_close(hwnd: HWND) -> LRESULT {
             close_req.send(event::CloseRequest(hwnd)).await
         });
         if let Err(_) = ret {
-            UiThread::get().send_method(move |_| {
+            UiThread::post(move || {
                 DestroyWindow(hwnd);
             });
         }
     } else {
         let hwnd = hwnd.clone();
-        UiThread::get().send_method(move |_| {
+        UiThread::post(move || {
             DestroyWindow(hwnd);
         });
     }

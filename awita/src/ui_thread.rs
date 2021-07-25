@@ -14,22 +14,31 @@ const WM_AWITA_METHOD: u32 = WM_APP + 1;
 
 static UI_THREAD: OnceCell<UiThread> = OnceCell::new();
 
-pub(crate) struct UiThread {
+pub struct UiThread {
     thread_id: u32,
     method_tx: mpsc::UnboundedSender<Box<dyn FnOnce(&Context) + Send>>,
     finish_rx: watch::Receiver<bool>,
 }
 
 impl UiThread {
-    pub(crate) fn get() -> &'static UiThread {
+    fn get() -> &'static UiThread {
         UI_THREAD.get_or_init(|| run())
     }
 
-    pub(crate) fn send_method(&self, method: impl FnOnce(&Context) + Send + 'static) {
+    pub fn post(f: impl FnOnce() + Send + 'static) {
+        let th = Self::get();
         unsafe {
-            PostThreadMessageW(self.thread_id, WM_AWITA_METHOD, WPARAM(0), LPARAM(0));
+            PostThreadMessageW(th.thread_id, WM_AWITA_METHOD, WPARAM(0), LPARAM(0));
         }
-        self.method_tx.send(Box::new(method)).ok();
+        th.method_tx.send(Box::new(|_| f())).ok();
+    }
+
+    pub(crate) fn post_with_context(f: impl FnOnce(&Context) + Send + 'static) {
+        let th = Self::get();
+        unsafe {
+            PostThreadMessageW(th.thread_id, WM_AWITA_METHOD, WPARAM(0), LPARAM(0));
+        }
+        th.method_tx.send(Box::new(f)).ok();
     }
 
     pub async fn finished() {
@@ -141,6 +150,7 @@ fn run() -> UiThread {
                 DispatchMessageW(&msg);
             }
             if let Some(e) = context().unwind.take() {
+                finish_tx.send(false).ok();
                 std::panic::resume_unwind(e);
             }
         }

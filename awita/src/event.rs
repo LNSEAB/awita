@@ -40,7 +40,7 @@ pub struct CloseRequest(pub(crate) HWND);
 impl CloseRequest {
     #[inline]
     pub fn close(self) {
-        UiThread::get().send_method(move |_| unsafe {
+        UiThread::post_with_context(move |_| unsafe {
             DestroyWindow(self.0);
         });
     }

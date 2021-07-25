@@ -10,7 +10,8 @@ pub use device::*;
 pub use geometry::*;
 pub use window::Window;
 
-use ui_thread::*;
+pub use ui_thread::UiThread;
+use ui_thread::{Context, CONTEXT};
 
 #[inline]
 pub async fn finished() {

@@ -139,7 +139,7 @@ pub struct Window {
 impl Window {
     async fn new(builder: Builder) -> anyhow::Result<Self> {
         let (tx, rx) = tokio::sync::oneshot::channel();
-        UiThread::get().send_method(move |ctx| unsafe {
+        UiThread::post_with_context(move |ctx| unsafe {
             let dpi = get_dpi_from_point(builder.position);
             let title = builder
                 .title
@@ -217,7 +217,7 @@ impl Window {
     {
         let hwnd = self.hwnd.clone();
         let (tx, rx) = oneshot::channel();
-        UiThread::get().send_method(move |ctx| {
+        UiThread::post_with_context(move |ctx| {
             if let Some(state) = ctx.get_window(hwnd) {
                 tx.send(f(&state).subscribe()).unwrap();
             }
@@ -299,7 +299,7 @@ impl Window {
     pub async fn close_request_receiver(&self) -> event::CloseRequestReceiver {
         let (tx, rx) = mpsc::channel(1);
         let hwnd = self.hwnd.clone();
-        UiThread::get().send_method(move |ctx| {
+        UiThread::post_with_context(move |ctx| {
             if let Some(mut window) = ctx.get_window_mut(hwnd) {
                 window.close_request_channel = Some(tx);
             }
