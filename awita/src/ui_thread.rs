@@ -131,6 +131,7 @@ fn run() -> UiThread {
     let (id_tx, id_rx) = std::sync::mpsc::channel();
     let (finish_tx, finish_rx) = watch::channel(false);
     std::thread::spawn(move || unsafe {
+        windows::initialize_sta().unwrap();
         SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         IsGUIThread(true);
         CONTEXT.with(|ctx| {
