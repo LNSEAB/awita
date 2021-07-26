@@ -40,6 +40,10 @@ fn main() {
         Windows::Win32::System::Com::{
             CoInitialize,
             CoCreateInstance,
-        }
+        },
+        Windows::Win32::System::Diagnostics::Debug::{
+            FormatMessageW,
+            GetLastError,
+        },
     );
 }

@@ -27,5 +27,18 @@
 			"preLaunchTask": "build events",
 			"internalConsoleOptions": "openOnSessionStart",
 		},
+		{
+			"name": "icon",
+			"type": "cppvsdbg",
+			"request": "launch",
+			"program": "${workspaceFolder}/target/debug/examples/icon.exe",
+			"args": [],
+			"stopAtEntry": false,
+			"cwd": "${workspaceFolder}/awita",
+			"environment": [],
+			"console": "integratedTerminal",
+			"preLaunchTask": "build icon",
+			"internalConsoleOptions": "openOnSessionStart",
+		},
 	]
 }

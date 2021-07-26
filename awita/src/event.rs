@@ -1,9 +1,6 @@
 use super::*;
+use awita_windows_bindings::Windows::Win32::{Foundation::HWND, UI::WindowsAndMessaging::*};
 use tokio::sync::{broadcast, mpsc};
-use awita_windows_bindings::Windows::Win32::{
-    Foundation::HWND,
-    UI::WindowsAndMessaging::*,
-};
 
 pub struct Receiver<R>(pub(crate) Option<broadcast::Receiver<R>>);
 
@@ -53,9 +50,7 @@ pub struct CloseRequestReceiver {
 
 impl CloseRequestReceiver {
     pub(crate) fn new(rx: mpsc::Receiver<CloseRequest>) -> Self {
-        Self {
-            rx
-        }
+        Self { rx }
     }
 
     #[inline]

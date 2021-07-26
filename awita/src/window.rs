@@ -6,13 +6,14 @@ use awita_windows_bindings::Windows::Win32::{
     UI::{HiDpi::*, Shell::*, WindowsAndMessaging::*},
 };
 use once_cell::sync::OnceCell;
-use tokio::sync::{broadcast, oneshot, mpsc};
+use tokio::sync::{broadcast, mpsc, oneshot};
 
 pub struct Builder {
     title: String,
     position: ScreenPoint<i32>,
     size: Box<dyn ToPhysical<Value = u32, Output = Size<u32>> + Send>,
     visibility: bool,
+    icon: Option<Icon>,
     cursor: Option<Cursor>,
     accept_drop_files: bool,
 }
@@ -25,6 +26,7 @@ impl Builder {
             position: Screen(Point::new(0, 0)),
             size: Box::new(Logical(Size::new(640, 480))),
             visibility: true,
+            icon: None,
             cursor: Some(Cursor::Arrow),
             accept_drop_files: false,
         }
@@ -54,6 +56,12 @@ impl Builder {
     #[inline]
     pub fn visible(mut self, visibility: bool) -> Self {
         self.visibility = visibility;
+        self
+    }
+
+    #[inline]
+    pub fn icon(mut self, icon: Icon) -> Self {
+        self.icon = Some(icon);
         self
     }
 
@@ -171,6 +179,17 @@ impl Window {
                 GetModuleHandleW(None),
                 std::ptr::null_mut(),
             );
+            if let Some(icon) = builder.icon {
+                let big = icon.load().unwrap();
+                SendMessageW(hwnd, WM_SETICON, WPARAM(ICON_BIG as _), LPARAM(big.0 as _));
+                let small = icon.load_small().unwrap();
+                SendMessageW(
+                    hwnd,
+                    WM_SETICON,
+                    WPARAM(ICON_SMALL as _),
+                    LPARAM(small.0 as _),
+                );
+            }
             DragAcceptFiles(hwnd, builder.accept_drop_files);
             ShowWindow(hwnd, SW_SHOW);
             ctx.insert_window(
@@ -266,7 +285,7 @@ impl Window {
         });
         event::Receiver(rx.await.ok())
     }
-    
+
     #[inline]
     pub async fn draw_receiver(&self) -> event::Receiver<()> {
         self.on_event(|state| &state.draw_channel).await

@@ -334,9 +334,9 @@ unsafe fn wm_close(hwnd: HWND) -> LRESULT {
         None => return DefWindowProcW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0)),
     };
     if let Some(close_req) = window.close_request_channel.as_ref() {
-        let ret = context.runtime.block_on(async {
-            close_req.send(event::CloseRequest(hwnd)).await
-        });
+        let ret = context
+            .runtime
+            .block_on(async { close_req.send(event::CloseRequest(hwnd)).await });
         if let Err(_) = ret {
             UiThread::post(move || {
                 DestroyWindow(hwnd);

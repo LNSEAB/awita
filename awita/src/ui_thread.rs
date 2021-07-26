@@ -1,7 +1,7 @@
 use crate::window::WindowState;
 use awita_windows_bindings::Windows::Win32::{
     Foundation::*,
-    System::{Threading::*, Com::*},
+    System::{Com::*, Threading::*},
     UI::{HiDpi::*, WindowsAndMessaging::*},
 };
 use once_cell::sync::OnceCell;

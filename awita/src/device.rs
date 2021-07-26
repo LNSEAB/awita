@@ -1,9 +1,4 @@
 use super::*;
-use awita_windows_bindings::Windows::Win32::{
-    Foundation::*,
-    UI::WindowsAndMessaging::*,
-};
-
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ButtonState {
@@ -286,57 +281,6 @@ impl From<VirtualKey> for VirtualKeyCode {
     #[inline]
     fn from(src: VirtualKey) -> Self {
         Self(src as _)
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Cursor {
-    AppStarting,
-    Arrow,
-    Cross,
-    Hand,
-    Help,
-    IBeam,
-    No,
-    SizeAll,
-    SizeNESW,
-    SizeNS,
-    SizeNWSE,
-    SizeWE,
-    SizeUpArrow,
-    Wait,
-}
-
-impl Cursor {
-    pub(crate) fn name(&self) -> PWSTR {
-        match self {
-            Self::AppStarting => IDC_APPSTARTING,
-            Self::Arrow => IDC_ARROW,
-            Self::Cross => IDC_CROSS,
-            Self::Hand => IDC_HAND,
-            Self::Help => IDC_HELP,
-            Self::IBeam => IDC_IBEAM,
-            Self::No => IDC_NO,
-            Self::SizeAll => IDC_SIZEALL,
-            Self::SizeNESW => IDC_SIZENESW,
-            Self::SizeNS => IDC_SIZENS,
-            Self::SizeNWSE => IDC_SIZENWSE,
-            Self::SizeWE => IDC_SIZEWE,
-            Self::SizeUpArrow => IDC_UPARROW,
-            Self::Wait => IDC_WAIT,
-        }
-    }
-
-    pub(crate) fn set(&self) {
-        unsafe {
-            SetCursor(LoadCursorW(HINSTANCE::NULL, self.name()));
-        }
-    }
-}
-
-impl Default for Cursor {
-    fn default() -> Self {
-        Self::Arrow
     }
 }
 
