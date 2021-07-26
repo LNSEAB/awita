@@ -37,5 +37,9 @@ fn main() {
             MONITORINFO,
             PAINTSTRUCT,
         },
+        Windows::Win32::System::Com::{
+            CoInitialize,
+            CoCreateInstance,
+        }
     );
 }

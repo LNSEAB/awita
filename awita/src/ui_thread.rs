@@ -1,7 +1,7 @@
 use crate::window::WindowState;
 use awita_windows_bindings::Windows::Win32::{
     Foundation::*,
-    System::Threading::*,
+    System::{Threading::*, Com::*},
     UI::{HiDpi::*, WindowsAndMessaging::*},
 };
 use once_cell::sync::OnceCell;
@@ -131,7 +131,7 @@ fn run() -> UiThread {
     let (id_tx, id_rx) = std::sync::mpsc::channel();
     let (finish_tx, finish_rx) = watch::channel(false);
     std::thread::spawn(move || unsafe {
-        windows::initialize_sta().unwrap();
+        CoInitialize(std::ptr::null_mut()).unwrap();
         SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         IsGUIThread(true);
         CONTEXT.with(|ctx| {
