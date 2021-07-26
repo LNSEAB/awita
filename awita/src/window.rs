@@ -13,6 +13,7 @@ pub struct Builder {
     position: ScreenPoint<i32>,
     size: Box<dyn ToPhysical<Value = u32, Output = Size<u32>> + Send>,
     visibility: bool,
+    cursor: Option<Cursor>,
     accept_drop_files: bool,
 }
 
@@ -24,6 +25,7 @@ impl Builder {
             position: Screen(Point::new(0, 0)),
             size: Box::new(Logical(Size::new(640, 480))),
             visibility: true,
+            cursor: Some(Cursor::Arrow),
             accept_drop_files: false,
         }
     }
@@ -56,6 +58,12 @@ impl Builder {
     }
 
     #[inline]
+    pub fn cursor(mut self, cursor: Option<Cursor>) -> Self {
+        self.cursor = cursor;
+        self
+    }
+
+    #[inline]
     pub fn accept_drop_files(mut self, flag: bool) -> Self {
         self.accept_drop_files = flag;
         self
@@ -84,7 +92,6 @@ fn window_class() -> &'static Vec<u16> {
             cbSize: std::mem::size_of::<WNDCLASSEXW>() as _,
             style: CS_HREDRAW | CS_VREDRAW,
             lpfnWndProc: Some(procedure::window_proc),
-            hCursor: LoadCursorW(None, IDC_ARROW),
             hInstance: GetModuleHandleW(None),
             hbrBackground: HBRUSH(GetStockObject(WHITE_BRUSH).0),
             lpszClassName: PWSTR(class_name.as_ptr() as _),
@@ -113,6 +120,7 @@ fn get_dpi_from_point(pt: ScreenPoint<i32>) -> u32 {
 }
 
 pub(crate) struct WindowState {
+    pub cursor: Option<Cursor>,
     pub draw_channel: broadcast::Sender<()>,
     pub cursor_entered_channel: broadcast::Sender<MouseState>,
     pub cursor_leaved_channel: broadcast::Sender<MouseState>,
@@ -168,6 +176,7 @@ impl Window {
             ctx.insert_window(
                 hwnd,
                 WindowState {
+                    cursor: builder.cursor,
                     draw_channel: broadcast::channel(8).0,
                     cursor_entered_channel: broadcast::channel(8).0,
                     cursor_leaved_channel: broadcast::channel(8).0,
@@ -210,6 +219,16 @@ impl Window {
         let hwnd = self.hwnd.clone();
         UiThread::post(move || unsafe {
             RedrawWindow(hwnd, std::ptr::null(), HRGN::NULL, RDW_INTERNALPAINT);
+        });
+    }
+
+    #[inline]
+    pub fn set_cursor(&self, cursor: Option<Cursor>) {
+        let hwnd = self.hwnd.clone();
+        UiThread::post_with_context(move |ctx| {
+            if let Some(mut window) = ctx.get_window_mut(hwnd) {
+                window.cursor = cursor;
+            }
         });
     }
 

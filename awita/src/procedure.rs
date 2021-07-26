@@ -92,6 +92,9 @@ unsafe fn wm_mouse_move(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
             ..Default::default()
         });
         context.entered_cursor_window.set(Some(hwnd));
+        if let Some(cursor) = window.cursor.as_ref() {
+            cursor.set();
+        }
         window.cursor_entered_channel.send(state).ok();
     } else {
         window.cursor_moved_chennel.send(state).ok();
