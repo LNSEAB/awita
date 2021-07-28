@@ -16,8 +16,3 @@ pub use error::*;
 
 pub use ui_thread::UiThread;
 use ui_thread::{Context, CONTEXT};
-
-#[inline]
-pub async fn finished() {
-    ui_thread::UiThread::finished().await;
-}

@@ -102,8 +102,9 @@ async fn main() -> anyhow::Result<()> {
             v = closed.recv() => {
                 v.is_some().then(|| println!("closed"));
             }
-            _ = awita::finished() => break,
+            _ = awita::UiThread::finished() => break,
         }
     }
+    awita::UiThread::resume_unwind().await;
     Ok(())
 }

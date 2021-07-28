@@ -4,6 +4,7 @@ async fn main() -> anyhow::Result<()> {
         .title("awita hello")
         .build()
         .await?;
-    awita::finished().await;
+    awita::UiThread::finished().await;
+    awita::UiThread::resume_unwind().await;
     Ok(())
 }

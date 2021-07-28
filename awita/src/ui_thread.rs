@@ -8,7 +8,7 @@ use once_cell::sync::OnceCell;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::HashMap;
 use std::rc::Rc;
-use tokio::sync::{mpsc, watch};
+use tokio::sync::{mpsc, watch, oneshot, Mutex};
 
 const WM_AWITA_METHOD: u32 = WM_APP + 1;
 
@@ -18,6 +18,7 @@ pub struct UiThread {
     thread_id: u32,
     method_tx: mpsc::UnboundedSender<Box<dyn FnOnce(&Context) + Send>>,
     finish_rx: watch::Receiver<bool>,
+    unwind_rx: Mutex<Option<oneshot::Receiver<Option<Box<dyn std::any::Any + Send>>>>>,
 }
 
 impl UiThread {
@@ -41,9 +42,19 @@ impl UiThread {
         th.method_tx.send(Box::new(f)).ok();
     }
 
-    pub async fn finished() {
+    pub async fn finished() -> bool {
         let mut finish_rx = Self::get().finish_rx.clone();
         finish_rx.changed().await.unwrap();
+        let value = *finish_rx.borrow();
+        value
+    }
+
+    pub async fn resume_unwind() {
+        let mut rx = Self::get().unwind_rx.lock().await;
+        let rx = rx.take().unwrap();
+        if let Some(e) = rx.await.unwrap() {
+            std::panic::resume_unwind(e);
+        }
     }
 }
 
@@ -130,6 +141,7 @@ fn run() -> UiThread {
     let (tx, rx) = mpsc::unbounded_channel();
     let (id_tx, id_rx) = std::sync::mpsc::channel();
     let (finish_tx, finish_rx) = watch::channel(false);
+    let (unwind_tx, unwind_rx) = oneshot::channel();
     std::thread::spawn(move || unsafe {
         CoInitialize(std::ptr::null_mut()).unwrap();
         SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
@@ -151,15 +163,18 @@ fn run() -> UiThread {
                 DispatchMessageW(&msg);
             }
             if let Some(e) = context().unwind.take() {
+                unwind_tx.send(Some(e)).ok();
                 finish_tx.send(false).ok();
-                std::panic::resume_unwind(e);
+                return;
             }
         }
+        unwind_tx.send(None).ok();
         finish_tx.send(true).ok();
     });
     UiThread {
         thread_id: id_rx.recv().unwrap(),
         method_tx: tx,
         finish_rx,
+        unwind_rx: Mutex::new(Some(unwind_rx)),
     }
 }

@@ -5,6 +5,7 @@ async fn main() -> anyhow::Result<()> {
 		.icon(awita::Icon::File("examples/icon.ico".into()))
 		.build()
 		.await?;
-	awita::finished().await;
+	awita::UiThread::finished().await;
+    awita::UiThread::resume_unwind().await;
 	Ok(())
 }
