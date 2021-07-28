@@ -78,7 +78,7 @@ impl Builder {
     }
 
     #[inline]
-    pub async fn build(self) -> anyhow::Result<Window> {
+    pub async fn build(self) -> Result<Window, Error> {
         Window::new(self).await
     }
 }
@@ -153,7 +153,7 @@ pub struct Window {
 }
 
 impl Window {
-    async fn new(builder: Builder) -> anyhow::Result<Self> {
+    async fn new(builder: Builder) -> Result<Self, Error> {
         let (tx, rx) = tokio::sync::oneshot::channel();
         UiThread::post_with_context(move |ctx| unsafe {
             let dpi = get_dpi_from_point(builder.position);
@@ -179,6 +179,10 @@ impl Window {
                 GetModuleHandleW(None),
                 std::ptr::null_mut(),
             );
+            if hwnd.is_null() {
+                tx.send(Err(windows::HRESULT::from_thread().into())).ok();
+                return;
+            }
             if let Some(icon) = builder.icon {
                 let big = icon.load().unwrap();
                 SendMessageW(hwnd, WM_SETICON, WPARAM(ICON_BIG as _), LPARAM(big.0 as _));
@@ -214,9 +218,9 @@ impl Window {
                     closed_channel: broadcast::channel(1).0,
                 },
             );
-            tx.send(Window { hwnd }).ok();
+            tx.send(Ok(Window { hwnd })).ok();
         });
-        Ok(rx.await?)
+        rx.await.unwrap()
     }
 
     #[inline]

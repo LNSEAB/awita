@@ -1,6 +1,5 @@
 use awita_windows_bindings::Windows::Win32::{
     Foundation::*,
-    System::Diagnostics::Debug::*,
     UI::{Controls::*, WindowsAndMessaging::*},
 };
 use std::path::{Path, PathBuf};
@@ -37,7 +36,7 @@ impl Icon {
                 ),
             };
             if icon == HANDLE::NULL {
-                return Err(windows::HRESULT::from_win32(GetLastError().0).into());
+                return Err(windows::HRESULT::from_thread().into());
             }
             Ok(HICON(icon.0))
         }
