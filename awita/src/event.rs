@@ -1,8 +1,8 @@
 use super::*;
 use awita_windows_bindings::Windows::Win32::{Foundation::HWND, UI::WindowsAndMessaging::*};
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::mpsc;
 
-pub struct Receiver<R>(pub(crate) Option<broadcast::Receiver<R>>);
+pub struct Receiver<R>(pub(crate) Option<async_broadcast::Receiver<R>>);
 
 impl<R> Receiver<R>
 where

@@ -6,7 +6,8 @@ use awita_windows_bindings::Windows::Win32::{
     UI::{HiDpi::*, Shell::*, WindowsAndMessaging::*},
 };
 use once_cell::sync::OnceCell;
-use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot};
+use async_broadcast::{InactiveReceiver, Sender, broadcast};
 
 pub struct Builder {
     title: String,
@@ -151,31 +152,55 @@ fn get_dpi_from_point(pt: ScreenPoint<i32>) -> u32 {
     }
 }
 
+pub(crate) struct EventChannel<T> {
+    pub tx: Sender<T>,
+    pub rx: InactiveReceiver<T>,
+}
+
+impl<T> EventChannel<T>
+where
+    T: Clone
+{
+    fn new(capacity: usize) -> Self {
+        let (mut tx, rx) = broadcast(capacity);
+        tx.set_overflow(true);
+        Self {
+            tx,
+            rx: rx.deactivate(),
+        }
+    }
+
+    #[inline]
+    pub fn send(&self, value: T) {
+        self.tx.try_broadcast(value).ok();
+    }
+}
+
 pub(crate) struct WindowState {
     pub cursor: Option<Cursor>,
     pub ime_composition_window_visibility: bool,
     pub ime_candidate_window_visibility: bool,
     pub ime_context: ime::ImmContext,
     pub ime_position: PhysicalPoint<i32>,
-    pub draw_channel: broadcast::Sender<()>,
-    pub cursor_entered_channel: broadcast::Sender<MouseState>,
-    pub cursor_leaved_channel: broadcast::Sender<MouseState>,
-    pub cursor_moved_chennel: broadcast::Sender<MouseState>,
-    pub mouse_input_channel: broadcast::Sender<event::MouseInput>,
-    pub key_input_channel: broadcast::Sender<event::KeyInput>,
-    pub char_input_channel: broadcast::Sender<char>,
-    pub ime_start_composition_channel: broadcast::Sender<()>,
-    pub ime_composition_channel: broadcast::Sender<(ime::Composition, Option<ime::CandidateList>)>,
-    pub ime_end_composition_channel: broadcast::Sender<Option<String>>,
-    pub moved_channel: broadcast::Sender<ScreenPoint<i32>>,
-    pub sizing_channel: broadcast::Sender<PhysicalSize<u32>>,
-    pub sized_channel: broadcast::Sender<PhysicalSize<u32>>,
-    pub activated_channel: broadcast::Sender<()>,
-    pub inactivated_channel: broadcast::Sender<()>,
-    pub dpi_changed_channel: broadcast::Sender<u32>,
-    pub drop_files_channel: broadcast::Sender<event::DropFiles>,
+    pub draw_channel: EventChannel<()>,
+    pub cursor_entered_channel: EventChannel<MouseState>,
+    pub cursor_leaved_channel: EventChannel<MouseState>,
+    pub cursor_moved_chennel: EventChannel<MouseState>,
+    pub mouse_input_channel: EventChannel<event::MouseInput>,
+    pub key_input_channel: EventChannel<event::KeyInput>,
+    pub char_input_channel: EventChannel<char>,
+    pub ime_start_composition_channel: EventChannel<()>,
+    pub ime_composition_channel: EventChannel<(ime::Composition, Option<ime::CandidateList>)>,
+    pub ime_end_composition_channel: EventChannel<Option<String>>,
+    pub moved_channel: EventChannel<ScreenPoint<i32>>,
+    pub sizing_channel: EventChannel<PhysicalSize<u32>>,
+    pub sized_channel: EventChannel<PhysicalSize<u32>>,
+    pub activated_channel: EventChannel<()>,
+    pub inactivated_channel: EventChannel<()>,
+    pub dpi_changed_channel: EventChannel<u32>,
+    pub drop_files_channel: EventChannel<event::DropFiles>,
     pub close_request_channel: Option<mpsc::Sender<event::CloseRequest>>,
-    pub closed_channel: broadcast::Sender<()>,
+    pub closed_channel: EventChannel<()>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -235,25 +260,25 @@ impl Window {
                     ime_candidate_window_visibility: builder.ime_candidate_window_visibility,
                     ime_context: ime::ImmContext::new(hwnd),
                     ime_position: Physical(Point::new(0, 0)),
-                    draw_channel: broadcast::channel(8).0,
-                    cursor_entered_channel: broadcast::channel(8).0,
-                    cursor_leaved_channel: broadcast::channel(8).0,
-                    cursor_moved_chennel: broadcast::channel(128).0,
-                    mouse_input_channel: broadcast::channel(64).0,
-                    key_input_channel: broadcast::channel(256).0,
-                    char_input_channel: broadcast::channel(256).0,
-                    ime_start_composition_channel: broadcast::channel(1).0,
-                    ime_composition_channel: broadcast::channel(1).0,
-                    ime_end_composition_channel: broadcast::channel(1).0,
-                    moved_channel: broadcast::channel(128).0,
-                    sizing_channel: broadcast::channel(128).0,
-                    sized_channel: broadcast::channel(1).0,
-                    activated_channel: broadcast::channel(1).0,
-                    inactivated_channel: broadcast::channel(1).0,
-                    dpi_changed_channel: broadcast::channel(1).0,
-                    drop_files_channel: broadcast::channel(1).0,
+                    draw_channel: EventChannel::new(8),
+                    cursor_entered_channel: EventChannel::new(8),
+                    cursor_leaved_channel: EventChannel::new(8),
+                    cursor_moved_chennel: EventChannel::new(128),
+                    mouse_input_channel: EventChannel::new(64),
+                    key_input_channel: EventChannel::new(256),
+                    char_input_channel: EventChannel::new(256),
+                    ime_start_composition_channel: EventChannel::new(1),
+                    ime_composition_channel: EventChannel::new(1),
+                    ime_end_composition_channel: EventChannel::new(1),
+                    moved_channel: EventChannel::new(128),
+                    sizing_channel: EventChannel::new(128),
+                    sized_channel: EventChannel::new(1),
+                    activated_channel: EventChannel::new(1),
+                    inactivated_channel: EventChannel::new(1),
+                    dpi_changed_channel: EventChannel::new(1),
+                    drop_files_channel: EventChannel::new(1),
                     close_request_channel: None,
-                    closed_channel: broadcast::channel(1).0,
+                    closed_channel: EventChannel::new(1),
                 },
             );
             if let Some(window) = ctx.get_window(hwnd) {
@@ -360,14 +385,14 @@ impl Window {
 
     async fn on_event<F, R>(&self, f: F) -> event::Receiver<R>
     where
-        F: FnOnce(&WindowState) -> &broadcast::Sender<R> + Send + 'static,
+        F: FnOnce(&WindowState) -> &EventChannel<R> + Send + 'static,
         R: Clone + Send + 'static,
     {
         let hwnd = self.hwnd.clone();
         let (tx, rx) = oneshot::channel();
         UiThread::post_with_context(move |ctx| {
             if let Some(state) = ctx.get_window(hwnd) {
-                tx.send(f(&state).subscribe()).unwrap();
+                tx.send(f(&state).rx.activate_cloned()).ok();
             }
         });
         event::Receiver(rx.await.ok())

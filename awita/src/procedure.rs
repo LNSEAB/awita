@@ -66,10 +66,11 @@ fn get_mouse_buttons(wparam: WPARAM) -> MouseButtons {
 }
 
 unsafe fn wm_paint(hwnd: HWND) -> LRESULT {
+    let context = context();
     let mut ps = PAINTSTRUCT::default();
     BeginPaint(hwnd, &mut ps);
-    if let Some(window) = context().get_window(hwnd) {
-        window.draw_channel.send(()).ok();
+    if let Some(window) = context.get_window(hwnd) {
+        window.draw_channel.send( ());
     }
     EndPaint(hwnd, &ps);
     LRESULT(0)
@@ -96,9 +97,9 @@ unsafe fn wm_mouse_move(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         if let Some(cursor) = window.cursor.as_ref() {
             cursor.set();
         }
-        window.cursor_entered_channel.send(state).ok();
+        window.cursor_entered_channel.send( state);
     } else {
-        window.cursor_moved_chennel.send(state).ok();
+        window.cursor_moved_chennel.send( state);
     }
     LRESULT(0)
 }
@@ -113,13 +114,11 @@ unsafe fn wm_mouse_leave(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT 
     GetCursorPos(&mut position);
     ScreenToClient(hwnd, &mut position);
     context.entered_cursor_window.set(None);
-    window
-        .cursor_leaved_channel
-        .send(MouseState {
-            position: Physical(Point::new(position.x, position.y)),
-            buttons: get_mouse_buttons(wparam),
-        })
-        .ok();
+    window.cursor_leaved_channel.send( 
+    MouseState {
+        position: Physical(Point::new(position.x, position.y)),
+        buttons: get_mouse_buttons(wparam),
+    });
     LRESULT(0)
 }
 
@@ -130,19 +129,19 @@ unsafe fn mouse_input(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
-    if let Some(window) = context().get_window(hwnd) {
+    let context = context();
+    if let Some(window) = context.get_window(hwnd) {
         let mouse_state = MouseState {
             position: lparam_to_point(lparam),
             buttons: get_mouse_buttons(wparam),
         };
         window
             .mouse_input_channel
-            .send(event::MouseInput {
+            .send( event::MouseInput {
                 button,
                 button_state,
                 mouse_state,
-            })
-            .ok();
+            });
     }
     LRESULT(0)
 }
@@ -189,19 +188,19 @@ unsafe fn key_input(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRE
     };
     window
         .key_input_channel
-        .send(event::KeyInput {
+        .send( event::KeyInput {
             state,
             key_code,
             prev_state,
-        })
-        .ok();
+        });
     LRESULT(0)
 }
 
 unsafe fn wm_char(hwnd: HWND, wparam: WPARAM) -> LRESULT {
-    if let Some(window) = context().get_window(hwnd) {
+    let context = context();
+    if let Some(window) = context.get_window(hwnd) {
         if let Some(c) = char::from_u32(wparam.0 as _) {
-            window.char_input_channel.send(c).ok();
+            window.char_input_channel.send( c);
         }
     }
     LRESULT(0)
@@ -239,7 +238,7 @@ unsafe fn wm_ime_start_composition(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -
             window.ime_composition_window_visibility,
         );
     }
-    window.ime_start_composition_channel.send(()).ok();
+    window.ime_start_composition_channel.send( ());
     DefWindowProcW(hwnd, WM_IME_STARTCOMPOSITION, wparam, lparam)
 }
 
@@ -257,8 +256,7 @@ unsafe fn wm_ime_composition(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRES
             if let Some(ime::CompositionString::CompAttr(attr)) = comp_attr {
                 window
                     .ime_composition_channel
-                    .send((ime::Composition::new(s, attr), None))
-                    .ok();
+                    .send( (ime::Composition::new(s, attr), None));
             }
         }
     }
@@ -269,7 +267,7 @@ unsafe fn wm_ime_composition(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRES
             if let Some(ime::CompositionString::CompAttr(attr)) = comp_attr {
                 window
                     .ime_composition_channel
-                    .send((ime::Composition::new(s, attr), imc.get_candidate_list())).ok();
+                    .send( (ime::Composition::new(s, attr), imc.get_candidate_list()));
             }
         }
     }
@@ -290,14 +288,13 @@ unsafe fn wm_ime_end_composition(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> 
     let ret = imc.get_composition_string(GCS_RESULTSTR);
     window
         .ime_end_composition_channel
-        .send(ret.and_then(|ret_str| {
+        .send( ret.and_then(|ret_str| {
             if let ime::CompositionString::ResultStr(s) = ret_str {
                 Some(s)
             } else {
                 None
             }
-        }))
-        .ok();
+        }));
     DefWindowProcW(hwnd, WM_IME_ENDCOMPOSITION, wparam, lparam)
 }
 
@@ -310,16 +307,16 @@ unsafe fn wm_move(hwnd: HWND, lparam: LPARAM) -> LRESULT {
     let position = lparam_to_point(lparam);
     window
         .moved_channel
-        .send(Screen(Point::new(position.x, position.y)))
-        .ok();
+        .send( Screen(Point::new(position.x, position.y)));
     LRESULT(0)
 }
 
 unsafe fn wm_size(hwnd: HWND, lparam: LPARAM) -> LRESULT {
+    let context = context();
     let value = lparam.0 as i32;
     let size = Physical(Size::new(loword(value) as u32, hiword(value) as u32));
-    if let Some(window) = context().get_window(hwnd) {
-        window.sizing_channel.send(size).ok();
+    if let Some(window) = context.get_window(hwnd) {
+        window.sizing_channel.send( size);
     }
     LRESULT(0)
 }
@@ -330,19 +327,20 @@ unsafe fn wm_enter_size_move(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRES
 }
 
 unsafe fn wm_exit_size_move(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    context().resizing.set(false);
+    let context = context();
+    context.resizing.set(false);
     let mut rc = RECT::default();
     GetClientRect(hwnd, &mut rc);
-    if let Some(window) = context().get_window(hwnd) {
+    if let Some(window) = context.get_window(hwnd) {
         window
             .sized_channel
-            .send(Physical(Size::new(rc.right as u32, rc.bottom as u32)))
-            .ok();
+            .send( Physical(Size::new(rc.right as u32, rc.bottom as u32)));
     }
     DefWindowProcW(hwnd, WM_EXITSIZEMOVE, wparam, lparam)
 }
 
 unsafe fn wm_dpi_changed(hwnd: HWND, lparam: LPARAM) -> LRESULT {
+    let context = context();
     let rc = *(lparam.0 as *const RECT);
     SetWindowPos(
         hwnd,
@@ -354,8 +352,8 @@ unsafe fn wm_dpi_changed(hwnd: HWND, lparam: LPARAM) -> LRESULT {
         SWP_NOZORDER | SWP_NOACTIVATE,
     );
     let dpi = GetDpiForWindow(hwnd);
-    if let Some(window) = context().get_window(hwnd) {
-        window.dpi_changed_channel.send(dpi).ok();
+    if let Some(window) = context.get_window(hwnd) {
+        window.dpi_changed_channel.send( dpi);
     }
     LRESULT(0)
 }
@@ -382,12 +380,13 @@ unsafe fn wm_get_dpi_scaled_size(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> 
 }
 
 unsafe fn wm_activate(hwnd: HWND, wparam: WPARAM) -> LRESULT {
-    if let Some(window) = context().get_window(hwnd) {
+    let context = context();
+    if let Some(window) = context.get_window(hwnd) {
         let value = loword(wparam.0 as _) as u32;
         if value == 0 {
-            window.inactivated_channel.send(()).ok();
+            window.inactivated_channel.send( ());
         } else {
-            window.activated_channel.send(()).ok();
+            window.activated_channel.send( ());
         }
     }
     LRESULT(0)
@@ -414,11 +413,10 @@ unsafe fn wm_drop_files(hwnd: HWND, wparam: WPARAM) -> LRESULT {
     DragQueryPoint(hdrop, &mut pt);
     window
         .drop_files_channel
-        .send(event::DropFiles {
+        .send( event::DropFiles {
             position: Physical(Point::new(pt.x, pt.y)),
             files,
-        })
-        .ok();
+        });
     LRESULT(0)
 }
 
@@ -447,11 +445,12 @@ unsafe fn wm_close(hwnd: HWND) -> LRESULT {
 }
 
 unsafe fn wm_destroy(hwnd: HWND) -> LRESULT {
-    if let Some(window) = context().get_window(hwnd) {
-        window.closed_channel.send(()).ok();
+    let context = context();
+    if let Some(window) = context.get_window(hwnd) {
+        window.closed_channel.send( ());
     }
-    context().remove_window(hwnd);
-    if context().window_map_is_empty() {
+    context.remove_window(hwnd);
+    if context.window_map_is_empty() {
         PostQuitMessage(0);
     }
     LRESULT(0)
