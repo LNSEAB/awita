@@ -2,6 +2,7 @@ use super::*;
 use awita_windows_bindings::Windows::Win32::{Foundation::HWND, UI::WindowsAndMessaging::*};
 use tokio::sync::mpsc;
 
+#[derive(Clone)]
 pub struct Receiver<R>(pub(crate) Option<async_broadcast::Receiver<R>>);
 
 impl<R> Receiver<R>
