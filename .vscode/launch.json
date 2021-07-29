@@ -40,5 +40,18 @@
 			"preLaunchTask": "build icon",
 			"internalConsoleOptions": "openOnSessionStart",
 		},
+		{
+			"name": "ime",
+			"type": "cppvsdbg",
+			"request": "launch",
+			"program": "${workspaceFolder}/target/debug/examples/ime.exe",
+			"args": [],
+			"stopAtEntry": false,
+			"cwd": "${workspaceFolder}/awita",
+			"environment": [],
+			"console": "integratedTerminal",
+			"preLaunchTask": "build ime",
+			"internalConsoleOptions": "openOnSessionStart",
+		},
 	]
 }

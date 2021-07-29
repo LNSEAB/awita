@@ -15,6 +15,9 @@ pub struct Builder {
     visibility: bool,
     icon: Option<Icon>,
     cursor: Option<Cursor>,
+    enable_ime: bool,
+    ime_composition_window_visibility: bool,
+    ime_candidate_window_visibility: bool,
     accept_drop_files: bool,
 }
 
@@ -28,6 +31,9 @@ impl Builder {
             visibility: true,
             icon: None,
             cursor: Some(Cursor::Arrow),
+            enable_ime: true,
+            ime_composition_window_visibility: true,
+            ime_candidate_window_visibility: true,
             accept_drop_files: false,
         }
     }
@@ -68,6 +74,24 @@ impl Builder {
     #[inline]
     pub fn cursor(mut self, cursor: Option<Cursor>) -> Self {
         self.cursor = cursor;
+        self
+    }
+
+    #[inline]
+    pub fn ime(mut self, enable: bool) -> Self {
+        self.enable_ime = enable;
+        self
+    }
+
+    #[inline]
+    pub fn visible_ime_composition_window(mut self, visibility: bool) -> Self {
+        self.ime_composition_window_visibility = visibility;
+        self
+    }
+
+    #[inline]
+    pub fn visible_ime_candidate_window(mut self, visibility: bool) -> Self {
+        self.ime_candidate_window_visibility = visibility;
         self
     }
 
@@ -129,6 +153,10 @@ fn get_dpi_from_point(pt: ScreenPoint<i32>) -> u32 {
 
 pub(crate) struct WindowState {
     pub cursor: Option<Cursor>,
+    pub ime_composition_window_visibility: bool,
+    pub ime_candidate_window_visibility: bool,
+    pub ime_context: ime::ImmContext,
+    pub ime_position: PhysicalPoint<i32>,
     pub draw_channel: broadcast::Sender<()>,
     pub cursor_entered_channel: broadcast::Sender<MouseState>,
     pub cursor_leaved_channel: broadcast::Sender<MouseState>,
@@ -136,6 +164,9 @@ pub(crate) struct WindowState {
     pub mouse_input_channel: broadcast::Sender<event::MouseInput>,
     pub key_input_channel: broadcast::Sender<event::KeyInput>,
     pub char_input_channel: broadcast::Sender<char>,
+    pub ime_start_composition_channel: broadcast::Sender<()>,
+    pub ime_composition_channel: broadcast::Sender<(ime::Composition, Option<ime::CandidateList>)>,
+    pub ime_end_composition_channel: broadcast::Sender<Option<String>>,
     pub moved_channel: broadcast::Sender<ScreenPoint<i32>>,
     pub sizing_channel: broadcast::Sender<PhysicalSize<u32>>,
     pub sized_channel: broadcast::Sender<PhysicalSize<u32>>,
@@ -200,6 +231,10 @@ impl Window {
                 hwnd,
                 WindowState {
                     cursor: builder.cursor,
+                    ime_composition_window_visibility: builder.ime_composition_window_visibility,
+                    ime_candidate_window_visibility: builder.ime_candidate_window_visibility,
+                    ime_context: ime::ImmContext::new(hwnd),
+                    ime_position: Physical(Point::new(0, 0)),
                     draw_channel: broadcast::channel(8).0,
                     cursor_entered_channel: broadcast::channel(8).0,
                     cursor_leaved_channel: broadcast::channel(8).0,
@@ -207,6 +242,9 @@ impl Window {
                     mouse_input_channel: broadcast::channel(64).0,
                     key_input_channel: broadcast::channel(256).0,
                     char_input_channel: broadcast::channel(256).0,
+                    ime_start_composition_channel: broadcast::channel(1).0,
+                    ime_composition_channel: broadcast::channel(1).0,
+                    ime_end_composition_channel: broadcast::channel(1).0,
                     moved_channel: broadcast::channel(128).0,
                     sizing_channel: broadcast::channel(128).0,
                     sized_channel: broadcast::channel(1).0,
@@ -218,9 +256,26 @@ impl Window {
                     closed_channel: broadcast::channel(1).0,
                 },
             );
+            if let Some(window) = ctx.get_window(hwnd) {
+                if builder.enable_ime {
+                    window.ime_context.enable();
+                } else {
+                    window.ime_context.disable();
+                }
+            }
             tx.send(Ok(Window { hwnd })).ok();
         });
         rx.await.unwrap()
+    }
+
+    #[inline]
+    pub async fn dpi(&self) -> Option<u32> {
+        let hwnd = self.hwnd.clone();
+        let (tx, rx) = oneshot::channel();
+        UiThread::post(move || unsafe {
+            tx.send(GetDpiForWindow(hwnd)).ok();
+        });
+        rx.await.ok()
     }
 
     #[inline]
@@ -251,6 +306,34 @@ impl Window {
         UiThread::post_with_context(move |ctx| {
             if let Some(mut window) = ctx.get_window_mut(hwnd) {
                 window.cursor = cursor;
+            }
+        });
+    }
+
+    #[inline]
+    pub fn set_ime(&self, enable: bool) {
+        let hwnd = self.hwnd.clone();
+        UiThread::post_with_context(move |ctx| {
+            if let Some(window) = ctx.get_window(hwnd) {
+                if enable {
+                    window.ime_context.enable();
+                } else {
+                    window.ime_context.disable();
+                }
+            }
+        });
+    }
+
+    #[inline]
+    pub fn set_ime_position<T>(&self, position: T)
+    where
+        T: ToPhysical<Output = Point<i32>, Value = i32> + Send + 'static,
+    {
+        let hwnd = self.hwnd.clone();
+        UiThread::post_with_context(move |ctx| unsafe {
+            if let Some(mut window) = ctx.get_window_mut(hwnd) {
+                let dpi = GetDpiForWindow(hwnd) as i32;
+                window.ime_position = position.to_physical(dpi);
             }
         });
     }
@@ -323,6 +406,25 @@ impl Window {
     #[inline]
     pub async fn char_input_receiver(&self) -> event::Receiver<char> {
         self.on_event(|state| &state.char_input_channel).await
+    }
+
+    #[inline]
+    pub async fn ime_start_composition_receiver(&self) -> event::Receiver<()> {
+        self.on_event(|state| &state.ime_start_composition_channel)
+            .await
+    }
+
+    #[inline]
+    pub async fn ime_composition_receiver(
+        &self,
+    ) -> event::Receiver<(ime::Composition, Option<ime::CandidateList>)> {
+        self.on_event(|state| &state.ime_composition_channel).await
+    }
+
+    #[inline]
+    pub async fn ime_end_composition_receiver(&self) -> event::Receiver<Option<String>> {
+        self.on_event(|state| &state.ime_end_composition_channel)
+            .await
     }
 
     #[inline]

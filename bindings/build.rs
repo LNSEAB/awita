@@ -13,6 +13,7 @@ fn main() {
         Windows::Win32::System::LibraryLoader::GetModuleHandleW,
         Windows::Win32::System::Threading::GetCurrentThreadId,
         Windows::Win32::System::Diagnostics::Debug::*,
+        Windows::Win32::Globalization::*,
         Windows::Win32::Foundation::{
             HWND,
             HINSTANCE,
@@ -40,10 +41,6 @@ fn main() {
         Windows::Win32::System::Com::{
             CoInitialize,
             CoCreateInstance,
-        },
-        Windows::Win32::System::Diagnostics::Debug::{
-            FormatMessageW,
-            GetLastError,
         },
     );
 }

@@ -1,6 +1,7 @@
 use super::*;
 use awita_windows_bindings::Windows::Win32::{
     Foundation::*,
+    Globalization::*,
     Graphics::Gdi::*,
     UI::{Controls::*, HiDpi::*, KeyboardAndMouseInput::*, Shell::*, WindowsAndMessaging::*},
 };
@@ -204,6 +205,100 @@ unsafe fn wm_char(hwnd: HWND, wparam: WPARAM) -> LRESULT {
         }
     }
     LRESULT(0)
+}
+
+unsafe fn wm_ime_set_context(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    let context = context();
+    let window = match context.get_window(hwnd) {
+        Some(window) => window,
+        None => return DefWindowProcW(hwnd, WM_IME_SETCONTEXT, wparam, lparam),
+    };
+    let mut lparam = lparam.0 as u32;
+    if !window.ime_composition_window_visibility {
+        lparam &= !ISC_SHOWUICOMPOSITIONWINDOW;
+    }
+    if !window.ime_candidate_window_visibility {
+        lparam &= !ISC_SHOWUIALLCANDIDATEWINDOW;
+    }
+    DefWindowProcW(hwnd, WM_IME_SETCONTEXT, wparam, LPARAM(lparam as _))
+}
+
+unsafe fn wm_ime_start_composition(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    let context = context();
+    let window = match context.get_window(hwnd) {
+        Some(window) => window,
+        None => return DefWindowProcW(hwnd, WM_IME_STARTCOMPOSITION, wparam, lparam),
+    };
+    let imc = ime::Imc::get(hwnd);
+    if window.ime_composition_window_visibility {
+        imc.set_composition_window_position(window.ime_position);
+    }
+    if window.ime_candidate_window_visibility {
+        imc.set_candidate_window_position(
+            window.ime_position,
+            window.ime_composition_window_visibility,
+        );
+    }
+    window.ime_start_composition_channel.send(()).ok();
+    DefWindowProcW(hwnd, WM_IME_STARTCOMPOSITION, wparam, lparam)
+}
+
+unsafe fn wm_ime_composition(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    let context = context();
+    let window = match context.get_window(hwnd) {
+        Some(window) => window,
+        None => return DefWindowProcW(hwnd, WM_IME_COMPOSITION, wparam, lparam),
+    };
+    let imc = ime::Imc::get(hwnd);
+    if lparam.0 as u32 & GCS_RESULTSTR == GCS_RESULTSTR {
+        let comp_str = imc.get_composition_string(GCS_RESULTSTR);
+        if let Some(ime::CompositionString::CompStr(s)) = comp_str {
+            let comp_attr = imc.get_composition_string(GCS_COMPATTR);
+            if let Some(ime::CompositionString::CompAttr(attr)) = comp_attr {
+                window
+                    .ime_composition_channel
+                    .send((ime::Composition::new(s, attr), None))
+                    .ok();
+            }
+        }
+    }
+    if lparam.0 as u32 & GCS_COMPSTR == GCS_COMPSTR {
+        let comp_str = imc.get_composition_string(GCS_COMPSTR);
+        if let Some(ime::CompositionString::CompStr(s)) = comp_str {
+            let comp_attr = imc.get_composition_string(GCS_COMPATTR);
+            if let Some(ime::CompositionString::CompAttr(attr)) = comp_attr {
+                window
+                    .ime_composition_channel
+                    .send((ime::Composition::new(s, attr), imc.get_candidate_list())).ok();
+            }
+        }
+    }
+    if window.ime_composition_window_visibility {
+        DefWindowProcW(hwnd, WM_IME_COMPOSITION, wparam, lparam)
+    } else {
+        LRESULT(0)
+    }
+}
+
+unsafe fn wm_ime_end_composition(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    let context = context();
+    let window = match context.get_window(hwnd) {
+        Some(window) => window,
+        None => return DefWindowProcW(hwnd, WM_IME_ENDCOMPOSITION, wparam, lparam),
+    };
+    let imc = ime::Imc::get(hwnd);
+    let ret = imc.get_composition_string(GCS_RESULTSTR);
+    window
+        .ime_end_composition_channel
+        .send(ret.and_then(|ret_str| {
+            if let ime::CompositionString::ResultStr(s) = ret_str {
+                Some(s)
+            } else {
+                None
+            }
+        }))
+        .ok();
+    DefWindowProcW(hwnd, WM_IME_ENDCOMPOSITION, wparam, lparam)
 }
 
 unsafe fn wm_move(hwnd: HWND, lparam: LPARAM) -> LRESULT {
@@ -438,6 +533,10 @@ pub(crate) unsafe extern "system" fn window_proc(
         WM_SYSKEYDOWN => key_input(hwnd, WM_SYSKEYDOWN, wparam, lparam),
         WM_SYSKEYUP => key_input(hwnd, WM_SYSKEYDOWN, wparam, lparam),
         WM_CHAR => wm_char(hwnd, wparam),
+        WM_IME_SETCONTEXT => wm_ime_set_context(hwnd, wparam, lparam),
+        WM_IME_STARTCOMPOSITION => wm_ime_start_composition(hwnd, wparam, lparam),
+        WM_IME_COMPOSITION => wm_ime_composition(hwnd, wparam, lparam),
+        WM_IME_ENDCOMPOSITION => wm_ime_end_composition(hwnd, wparam, lparam),
         WM_MOVE => wm_move(hwnd, lparam),
         WM_SIZE => wm_size(hwnd, lparam),
         WM_ENTERSIZEMOVE => wm_enter_size_move(hwnd, wparam, lparam),

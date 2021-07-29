@@ -8,7 +8,7 @@ use once_cell::sync::OnceCell;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::HashMap;
 use std::rc::Rc;
-use tokio::sync::{mpsc, watch, oneshot, Mutex};
+use tokio::sync::{mpsc, oneshot, watch, Mutex};
 
 const WM_AWITA_METHOD: u32 = WM_APP + 1;
 
@@ -17,7 +17,7 @@ static UI_THREAD: OnceCell<UiThread> = OnceCell::new();
 pub struct UiThread {
     thread_id: u32,
     method_tx: mpsc::UnboundedSender<Box<dyn FnOnce(&Context) + Send>>,
-    finish_rx: watch::Receiver<bool>,
+    finish_rx: watch::Receiver<Option<bool>>,
     unwind_rx: Mutex<Option<oneshot::Receiver<Option<Box<dyn std::any::Any + Send>>>>>,
 }
 
@@ -42,11 +42,15 @@ impl UiThread {
         th.method_tx.send(Box::new(f)).ok();
     }
 
+    pub fn is_running() -> bool {
+        Self::get().finish_rx.borrow().is_none()
+    }
+
     pub async fn finished() -> bool {
         let mut finish_rx = Self::get().finish_rx.clone();
         finish_rx.changed().await.unwrap();
         let value = *finish_rx.borrow();
-        value
+        value.unwrap()
     }
 
     pub async fn resume_unwind() {
@@ -140,7 +144,7 @@ fn context() -> Rc<Context> {
 fn run() -> UiThread {
     let (tx, rx) = mpsc::unbounded_channel();
     let (id_tx, id_rx) = std::sync::mpsc::channel();
-    let (finish_tx, finish_rx) = watch::channel(false);
+    let (finish_tx, finish_rx) = watch::channel(None);
     let (unwind_tx, unwind_rx) = oneshot::channel();
     std::thread::spawn(move || unsafe {
         CoInitialize(std::ptr::null_mut()).unwrap();
@@ -164,12 +168,12 @@ fn run() -> UiThread {
             }
             if let Some(e) = context().unwind.take() {
                 unwind_tx.send(Some(e)).ok();
-                finish_tx.send(false).ok();
+                finish_tx.send(Some(false)).ok();
                 return;
             }
         }
         unwind_tx.send(None).ok();
-        finish_tx.send(true).ok();
+        finish_tx.send(Some(true)).ok();
     });
     UiThread {
         thread_id: id_rx.recv().unwrap(),
