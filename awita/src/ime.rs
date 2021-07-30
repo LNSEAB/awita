@@ -106,25 +106,36 @@ impl std::ops::Index<usize> for CandidateList {
 pub(crate) struct ImmContext {
     hwnd: HWND,
     himc: HIMC,
+    enabled: std::cell::Cell<bool>,
 }
 
 impl ImmContext {
     pub fn new(hwnd: HWND) -> Self {
         unsafe {
             let himc = ImmCreateContext();
-            Self { hwnd, himc }
+            Self {
+                hwnd,
+                himc,
+                enabled: std::cell::Cell::new(false),
+            }
         }
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.enabled.get()
     }
 
     pub fn enable(&self) {
         unsafe {
             ImmAssociateContextEx(self.hwnd, self.himc, IACE_CHILDREN);
+            self.enabled.set(true);
         }
     }
 
     pub fn disable(&self) {
         unsafe {
             ImmAssociateContextEx(self.hwnd, None, IACE_IGNORENOCONTEXT);
+            self.enabled.set(false);
         }
     }
 }

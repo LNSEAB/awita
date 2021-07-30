@@ -7,7 +7,99 @@ use awita_windows_bindings::Windows::Win32::{
 };
 use once_cell::sync::OnceCell;
 use tokio::sync::{mpsc, oneshot};
-use async_broadcast::{InactiveReceiver, Sender, broadcast};
+
+pub trait StyleObject {
+    fn value(&self) -> u32;
+    fn ex(&self) -> u32;
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct BorderlessStyle;
+
+impl StyleObject for BorderlessStyle {
+    fn value(&self) -> u32 {
+        WS_POPUP.0
+    }
+
+    fn ex(&self) -> u32 {
+        0
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Style {
+    value: u32,
+    ex: u32,
+}
+
+impl Style {
+    #[inline]
+    pub const fn new() -> Self {
+        Self {
+            value: WS_OVERLAPPEDWINDOW.0,
+            ex: 0,
+        }
+    }
+
+    #[inline]
+    pub const fn dialog() -> Self {
+        Self {
+            value: WS_OVERLAPPED.0 | WS_CAPTION.0 | WS_SYSMENU.0,
+            ex: 0,
+        }
+    }
+
+    #[inline]
+    pub const fn borderless() -> BorderlessStyle {
+        BorderlessStyle
+    }
+
+    #[inline]
+    pub const fn resizable(mut self, resizable: bool) -> Self {
+        if resizable {
+            self.value |= WS_THICKFRAME.0;
+        } else {
+            self.value &= !WS_THICKFRAME.0;
+        }
+        self
+    }
+
+    #[inline]
+    pub const fn has_minimize_box(mut self, flag: bool) -> Self {
+        if flag {
+            self.value |= WS_MINIMIZEBOX.0;
+        } else {
+            self.value &= !WS_MINIMIZEBOX.0;
+        }
+        self
+    }
+
+    #[inline]
+    pub const fn has_maximize_box(mut self, flag: bool) -> Self {
+        if flag {
+            self.value |= WS_MAXIMIZEBOX.0;
+        } else {
+            self.value &= !WS_MAXIMIZEBOX.0;
+        }
+        self
+    }
+}
+
+impl Default for Style {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl StyleObject for Style {
+    fn value(&self) -> u32 {
+        self.value
+    }
+
+    fn ex(&self) -> u32 {
+        self.ex
+    }
+}
 
 pub struct Builder {
     title: String,
@@ -20,6 +112,7 @@ pub struct Builder {
     ime_composition_window_visibility: bool,
     ime_candidate_window_visibility: bool,
     accept_drop_files: bool,
+    style: Style,
 }
 
 impl Builder {
@@ -36,6 +129,7 @@ impl Builder {
             ime_composition_window_visibility: true,
             ime_candidate_window_visibility: true,
             accept_drop_files: false,
+            style: Style::new(),
         }
     }
 
@@ -103,6 +197,15 @@ impl Builder {
     }
 
     #[inline]
+    pub fn style(mut self, object: impl StyleObject) -> Self {
+        self.style = Style {
+            value: object.value(),
+            ex: object.ex(),
+        };
+        self
+    }
+
+    #[inline]
     pub async fn build(self) -> Result<Window, Error> {
         Window::new(self).await
     }
@@ -152,55 +255,31 @@ fn get_dpi_from_point(pt: ScreenPoint<i32>) -> u32 {
     }
 }
 
-pub(crate) struct EventChannel<T> {
-    pub tx: Sender<T>,
-    pub rx: InactiveReceiver<T>,
-}
-
-impl<T> EventChannel<T>
-where
-    T: Clone
-{
-    fn new(capacity: usize) -> Self {
-        let (mut tx, rx) = broadcast(capacity);
-        tx.set_overflow(true);
-        Self {
-            tx,
-            rx: rx.deactivate(),
-        }
-    }
-
-    #[inline]
-    pub fn send(&self, value: T) {
-        self.tx.try_broadcast(value).ok();
-    }
-}
-
 pub(crate) struct WindowState {
     pub cursor: Option<Cursor>,
     pub ime_composition_window_visibility: bool,
     pub ime_candidate_window_visibility: bool,
     pub ime_context: ime::ImmContext,
     pub ime_position: PhysicalPoint<i32>,
-    pub draw_channel: EventChannel<()>,
-    pub cursor_entered_channel: EventChannel<MouseState>,
-    pub cursor_leaved_channel: EventChannel<MouseState>,
-    pub cursor_moved_chennel: EventChannel<MouseState>,
-    pub mouse_input_channel: EventChannel<event::MouseInput>,
-    pub key_input_channel: EventChannel<event::KeyInput>,
-    pub char_input_channel: EventChannel<char>,
-    pub ime_start_composition_channel: EventChannel<()>,
-    pub ime_composition_channel: EventChannel<(ime::Composition, Option<ime::CandidateList>)>,
-    pub ime_end_composition_channel: EventChannel<Option<String>>,
-    pub moved_channel: EventChannel<ScreenPoint<i32>>,
-    pub sizing_channel: EventChannel<PhysicalSize<u32>>,
-    pub sized_channel: EventChannel<PhysicalSize<u32>>,
-    pub activated_channel: EventChannel<()>,
-    pub inactivated_channel: EventChannel<()>,
-    pub dpi_changed_channel: EventChannel<u32>,
-    pub drop_files_channel: EventChannel<event::DropFiles>,
+    pub draw_channel: event::Channel<()>,
+    pub cursor_entered_channel: event::Channel<MouseState>,
+    pub cursor_leaved_channel: event::Channel<MouseState>,
+    pub cursor_moved_chennel: event::Channel<MouseState>,
+    pub mouse_input_channel: event::Channel<event::MouseInput>,
+    pub key_input_channel: event::Channel<event::KeyInput>,
+    pub char_input_channel: event::Channel<char>,
+    pub ime_start_composition_channel: event::Channel<()>,
+    pub ime_composition_channel: event::Channel<(ime::Composition, Option<ime::CandidateList>)>,
+    pub ime_end_composition_channel: event::Channel<Option<String>>,
+    pub moved_channel: event::Channel<ScreenPoint<i32>>,
+    pub sizing_channel: event::Channel<PhysicalSize<u32>>,
+    pub sized_channel: event::Channel<PhysicalSize<u32>>,
+    pub activated_channel: event::Channel<()>,
+    pub inactivated_channel: event::Channel<()>,
+    pub dpi_changed_channel: event::Channel<u32>,
+    pub drop_files_channel: event::Channel<event::DropFiles>,
     pub close_request_channel: Option<mpsc::Sender<event::CloseRequest>>,
-    pub closed_channel: EventChannel<()>,
+    pub closed_channel: event::Channel<()>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -222,10 +301,10 @@ impl Window {
             let size =
                 utility::adjust_window_size(size, WS_OVERLAPPEDWINDOW, WINDOW_EX_STYLE(0), dpi);
             let hwnd = CreateWindowExW(
-                WINDOW_EX_STYLE(0),
+                WINDOW_EX_STYLE(builder.style.ex),
                 PWSTR(window_class().as_ptr() as _),
                 PWSTR(title.as_ptr() as _),
-                WS_OVERLAPPEDWINDOW,
+                WINDOW_STYLE(builder.style.value),
                 builder.position.x,
                 builder.position.y,
                 size.width as _,
@@ -260,25 +339,25 @@ impl Window {
                     ime_candidate_window_visibility: builder.ime_candidate_window_visibility,
                     ime_context: ime::ImmContext::new(hwnd),
                     ime_position: Physical(Point::new(0, 0)),
-                    draw_channel: EventChannel::new(8),
-                    cursor_entered_channel: EventChannel::new(8),
-                    cursor_leaved_channel: EventChannel::new(8),
-                    cursor_moved_chennel: EventChannel::new(128),
-                    mouse_input_channel: EventChannel::new(64),
-                    key_input_channel: EventChannel::new(256),
-                    char_input_channel: EventChannel::new(256),
-                    ime_start_composition_channel: EventChannel::new(1),
-                    ime_composition_channel: EventChannel::new(1),
-                    ime_end_composition_channel: EventChannel::new(1),
-                    moved_channel: EventChannel::new(128),
-                    sizing_channel: EventChannel::new(128),
-                    sized_channel: EventChannel::new(1),
-                    activated_channel: EventChannel::new(1),
-                    inactivated_channel: EventChannel::new(1),
-                    dpi_changed_channel: EventChannel::new(1),
-                    drop_files_channel: EventChannel::new(1),
+                    draw_channel: event::Channel::new(8),
+                    cursor_entered_channel: event::Channel::new(8),
+                    cursor_leaved_channel: event::Channel::new(8),
+                    cursor_moved_chennel: event::Channel::new(128),
+                    mouse_input_channel: event::Channel::new(64),
+                    key_input_channel: event::Channel::new(256),
+                    char_input_channel: event::Channel::new(256),
+                    ime_start_composition_channel: event::Channel::new(1),
+                    ime_composition_channel: event::Channel::new(1),
+                    ime_end_composition_channel: event::Channel::new(1),
+                    moved_channel: event::Channel::new(128),
+                    sizing_channel: event::Channel::new(128),
+                    sized_channel: event::Channel::new(1),
+                    activated_channel: event::Channel::new(1),
+                    inactivated_channel: event::Channel::new(1),
+                    dpi_changed_channel: event::Channel::new(1),
+                    drop_files_channel: event::Channel::new(1),
                     close_request_channel: None,
-                    closed_channel: EventChannel::new(1),
+                    closed_channel: event::Channel::new(1),
                 },
             );
             if let Some(window) = ctx.get_window(hwnd) {
@@ -290,11 +369,44 @@ impl Window {
             }
             tx.send(Ok(Window { hwnd })).ok();
         });
-        rx.await.unwrap()
+        rx.await?
     }
-    
+
     #[inline]
-    pub async fn position(&self) -> Option<Screen<Point<i32>>> {
+    pub async fn title(&self) -> Result<String, Error> {
+        let hwnd = self.hwnd.clone();
+        let (tx, rx) = oneshot::channel();
+        UiThread::post(move || unsafe {
+            let len = GetWindowTextLengthW(hwnd) as usize;
+            if len == 0 {
+                tx.send(String::new()).ok();
+                return;
+            }
+            let len = len + 1;
+            let mut buf: Vec<u16> = Vec::with_capacity(len);
+            buf.set_len(len);
+            GetWindowTextW(hwnd, PWSTR(buf.as_mut_ptr()), len as _);
+            buf.pop();
+            tx.send(String::from_utf16_lossy(&buf)).ok();
+        });
+        Ok(rx.await?)
+    }
+
+    #[inline]
+    pub async fn set_title(&self, text: impl AsRef<str>) {
+        let hwnd = self.hwnd.clone();
+        let mut text = text
+            .as_ref()
+            .encode_utf16()
+            .chain(Some(0))
+            .collect::<Vec<_>>();
+        UiThread::post(move || unsafe {
+            SetWindowTextW(hwnd, PWSTR(text.as_mut_ptr()));
+        });
+    }
+
+    #[inline]
+    pub async fn position(&self) -> Result<Screen<Point<i32>>, Error> {
         let hwnd = self.hwnd.clone();
         let (tx, rx) = oneshot::channel();
         UiThread::post(move || unsafe {
@@ -302,29 +414,72 @@ impl Window {
             GetWindowRect(hwnd, &mut rc);
             tx.send(Screen(Point::new(rc.left, rc.top))).ok();
         });
-        rx.await.ok()
+        Ok(rx.await?)
     }
 
     #[inline]
-    pub async fn inner_size(&self) -> Option<Physical<Size<u32>>> {
+    pub fn set_position<T>(&self, position: T)
+    where
+        T: ToPhysical<Output = Point<i32>, Value = i32> + Send + 'static,
+    {
+        let hwnd = self.hwnd.clone();
+        UiThread::post(move || unsafe {
+            let dpi = GetDpiForWindow(hwnd) as i32;
+            let position = position.to_physical(dpi);
+            SetWindowPos(
+                hwnd,
+                HWND::NULL,
+                position.x,
+                position.y,
+                0,
+                0,
+                SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE,
+            );
+        });
+    }
+
+    #[inline]
+    pub async fn inner_size(&self) -> Result<Physical<Size<u32>>, Error> {
         let hwnd = self.hwnd.clone();
         let (tx, rx) = oneshot::channel();
         UiThread::post(move || unsafe {
             let mut rc = RECT::default();
             GetClientRect(hwnd, &mut rc);
-            tx.send(Physical(Size::new(rc.right as _, rc.bottom as _))).ok();
+            tx.send(Physical(Size::new(rc.right as _, rc.bottom as _)))
+                .ok();
         });
-        rx.await.ok()
+        Ok(rx.await?)
     }
 
     #[inline]
-    pub async fn dpi(&self) -> Option<u32> {
+    pub fn set_inner_size<T>(&self, size: T)
+    where
+        T: ToPhysical<Output = Size<u32>, Value = u32> + Send + 'static,
+    {
+        let hwnd = self.hwnd.clone();
+        UiThread::post(move || unsafe {
+            let dpi = GetDpiForWindow(hwnd);
+            let size = size.to_physical(dpi);
+            SetWindowPos(
+                hwnd,
+                HWND::NULL,
+                0,
+                0,
+                size.width as _,
+                size.height as _,
+                SWP_NOZORDER | SWP_NOMOVE | SWP_NOACTIVATE,
+            );
+        });
+    }
+
+    #[inline]
+    pub async fn dpi(&self) -> Result<u32, Error> {
         let hwnd = self.hwnd.clone();
         let (tx, rx) = oneshot::channel();
         UiThread::post(move || unsafe {
             tx.send(GetDpiForWindow(hwnd)).ok();
         });
-        rx.await.ok()
+        Ok(rx.await?)
     }
 
     #[inline]
@@ -357,6 +512,21 @@ impl Window {
                 window.cursor = cursor;
             }
         });
+    }
+
+    #[inline]
+    pub async fn is_enabled_ime(&self) -> Result<bool, Error> {
+        let hwnd = self.hwnd.clone();
+        let (tx, rx) = oneshot::channel();
+        UiThread::post_with_context(move |ctx| {
+            let enabled = if let Some(window) = ctx.get_window(hwnd) {
+                Ok(window.ime_context.is_enabled())
+            } else {
+                Err(Error::Closed)
+            };
+            tx.send(enabled).ok();
+        });
+        rx.await?
     }
 
     #[inline]
@@ -419,7 +589,7 @@ impl Window {
 
     async fn on_event<F, R>(&self, f: F) -> event::Receiver<R>
     where
-        F: FnOnce(&WindowState) -> &EventChannel<R> + Send + 'static,
+        F: FnOnce(&WindowState) -> &event::Channel<R> + Send + 'static,
         R: Clone + Send + 'static,
     {
         let hwnd = self.hwnd.clone();

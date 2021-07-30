@@ -23,57 +23,57 @@ async fn main() -> anyhow::Result<()> {
     let mut closed = window.closed_receiver().await;
     loop {
         tokio::select! {
-            Some(_) = draw.recv() => {
+            Ok(_) = draw.recv() => {
                 println!("draw");
             }
-            Some(data) = cursor_entered.recv() => {
+            Ok(data) = cursor_entered.recv() => {
                 println!("cursor_entered: {:?}", data);
             }
-            Some(data) = cursor_leaved.recv() => {
+            Ok(data) = cursor_leaved.recv() => {
                 println!("cursor_leaved: {:?}", data);
             }
-            Some(data) = cursor_moved.recv() => {
+            Ok(data) = cursor_moved.recv() => {
                 println!("cursor_moved: {:?}", data);
             }
-            Some(data) = mouse_input.recv() => {
+            Ok(data) = mouse_input.recv() => {
                 println!("mouse_input: {:?}", data);
             }
-            Some(data) = key_input.recv() => {
+            Ok(data) = key_input.recv() => {
                 println!("key_input: {:?}", data);
             }
-            Some(c) = char_input.recv() => {
+            Ok(c) = char_input.recv() => {
                 if c.is_ascii_control() {
                     println!("char_input: 0x{:x}", c as u32);
                 } else {
                     println!("char_input: {}", c);
                 }
             }
-            Some(data) = moved.recv() => {
+            Ok(data) = moved.recv() => {
                 println!("moved: {:?}", data);
             }
-            Some(data) = sizing.recv() => {
+            Ok(data) = sizing.recv() => {
                 println!("sizing: {:?}", data);
             }
-            Some(data) = sized.recv() => {
+            Ok(data) = sized.recv() => {
                 println!("sized: {:?}", data);
             }
-            Some(_) = activated.recv() => {
+            Ok(_) = activated.recv() => {
                 println!("activated");
             }
-            Some(_) = inactivated.recv() => {
+            Ok(_) = inactivated.recv() => {
                 println!("inactivated");
             }
-            Some(dpi) = dpi_changed.recv() => {
+            Ok(dpi) = dpi_changed.recv() => {
                 println!("dpi_changed: {}", dpi);
             }
-            Some(data) = drop_files.recv() => {
+            Ok(data) = drop_files.recv() => {
                 println!("drop_files: {:?}", data);
             }
-            Some(close_req) = close_request.recv() => {
+            Ok(close_req) = close_request.recv() => {
                 println!("close_request");
                 close_req.close();
             }
-            Some(_) = closed.recv() => {
+            Ok(_) = closed.recv() => {
                 println!("closed");
             }
             _ = awita::UiThread::finished() => break,

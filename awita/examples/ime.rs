@@ -11,14 +11,14 @@ async fn main() -> anyhow::Result<()> {
     let mut ime_end_composition = window.ime_end_composition_receiver().await;
     loop {
         tokio::select! {
-            Some(_) = ime_start_composition.recv() => {
-				println!("ime_start_composition");
+            Ok(_) = ime_start_composition.recv() => {
+                println!("ime_start_composition");
             }
-            Some(ret) = ime_composition.recv() => {
+            Ok(ret) = ime_composition.recv() => {
                 println!("ime_composition: {:?}", ret);
             }
-            Some(ret) = ime_end_composition.recv() => {
-				println!("ime_end_composition: {:?}", ret);
+            Ok(ret) = ime_end_composition.recv() => {
+                println!("ime_end_composition: {:?}", ret);
             }
             _ = awita::UiThread::finished() => break,
         }

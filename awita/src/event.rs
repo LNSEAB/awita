@@ -9,12 +9,35 @@ impl<R> Receiver<R>
 where
     R: Clone,
 {
-    pub async fn recv(&mut self) -> Option<R> {
+    pub async fn recv(&mut self) -> Result<R, Error> {
         if self.0.is_none() {
-            return None;
+            return Err(Error::Closed);
         }
         let rx = self.0.as_mut().unwrap();
-        rx.recv().await.ok()
+        rx.recv().await.map_err(|_| Error::Closed)
+    }
+}
+
+pub(crate) struct Channel<T> {
+    pub tx: async_broadcast::Sender<T>,
+    pub rx: async_broadcast::InactiveReceiver<T>,
+}
+
+impl<T> Channel<T>
+where
+    T: Clone,
+{
+    pub fn new(capacity: usize) -> Self {
+        let (mut tx, rx) = async_broadcast::broadcast(capacity);
+        tx.set_overflow(true);
+        Self {
+            tx,
+            rx: rx.deactivate(),
+        }
+    }
+
+    pub fn send(&self, value: T) {
+        self.tx.try_broadcast(value).ok();
     }
 }
 
@@ -55,8 +78,8 @@ impl CloseRequestReceiver {
     }
 
     #[inline]
-    pub async fn recv(&mut self) -> Option<CloseRequest> {
-        self.rx.recv().await
+    pub async fn recv(&mut self) -> Result<CloseRequest, Error> {
+        self.rx.recv().await.ok_or(Error::Closed)
     }
 }
 
