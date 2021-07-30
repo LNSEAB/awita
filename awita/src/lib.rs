@@ -13,7 +13,7 @@ pub use device::*;
 pub use error::*;
 pub use geometry::*;
 pub use resource::*;
-pub use window::*;
+pub use window::Window;
 
 pub use ui_thread::UiThread;
 use ui_thread::{Context, CONTEXT};

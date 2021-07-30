@@ -23,84 +23,58 @@ async fn main() -> anyhow::Result<()> {
     let mut closed = window.closed_receiver().await;
     loop {
         tokio::select! {
-            v = draw.recv() => {
-                if v.is_some() {
-                    println!("draw");
+            Some(_) = draw.recv() => {
+                println!("draw");
+            }
+            Some(data) = cursor_entered.recv() => {
+                println!("cursor_entered: {:?}", data);
+            }
+            Some(data) = cursor_leaved.recv() => {
+                println!("cursor_leaved: {:?}", data);
+            }
+            Some(data) = cursor_moved.recv() => {
+                println!("cursor_moved: {:?}", data);
+            }
+            Some(data) = mouse_input.recv() => {
+                println!("mouse_input: {:?}", data);
+            }
+            Some(data) = key_input.recv() => {
+                println!("key_input: {:?}", data);
+            }
+            Some(c) = char_input.recv() => {
+                if c.is_ascii_control() {
+                    println!("char_input: 0x{:x}", c as u32);
+                } else {
+                    println!("char_input: {}", c);
                 }
             }
-            data = cursor_entered.recv() => {
-                if let Some(data) = data {
-                    println!("cursor_entered: {:?}", data);
-                }
+            Some(data) = moved.recv() => {
+                println!("moved: {:?}", data);
             }
-            data = cursor_leaved.recv() => {
-                if let Some(data) = data {
-                    println!("cursor_leaved: {:?}", data);
-                }
+            Some(data) = sizing.recv() => {
+                println!("sizing: {:?}", data);
             }
-            data = cursor_moved.recv() => {
-                if let Some(data) = data {
-                    println!("cursor_moved: {:?}", data);
-                }
+            Some(data) = sized.recv() => {
+                println!("sized: {:?}", data);
             }
-            data = mouse_input.recv() => {
-                if let Some(data) = data {
-                    println!("mouse_input: {:?}", data);
-                }
+            Some(_) = activated.recv() => {
+                println!("activated");
             }
-            data = key_input.recv() => {
-                if let Some(data) = data {
-                    println!("key_input: {:?}", data);
-                }
+            Some(_) = inactivated.recv() => {
+                println!("inactivated");
             }
-            c = char_input.recv() => {
-                if let Some(c) = c {
-                    if c.is_ascii_control() {
-                        println!("char_input: 0x{:x}", c as u32);
-                    } else {
-                        println!("char_input: {}", c);
-                    }
-                }
+            Some(dpi) = dpi_changed.recv() => {
+                println!("dpi_changed: {}", dpi);
             }
-            data = moved.recv() => {
-                if let Some(data) = data {
-                    println!("moved: {:?}", data);
-                }
+            Some(data) = drop_files.recv() => {
+                println!("drop_files: {:?}", data);
             }
-            data = sizing.recv() => {
-                if let Some(data) = data {
-                    println!("sizing: {:?}", data);
-                }
+            Some(close_req) = close_request.recv() => {
+                println!("close_request");
+                close_req.close();
             }
-            data = sized.recv() => {
-                if let Some(data) = data {
-                    println!("sized: {:?}", data);
-                }
-            }
-            v = activated.recv() => {
-                v.is_some().then(|| println!("activated"));
-            }
-            v = inactivated.recv() => {
-                v.is_some().then(|| println!("inactivated"));
-            }
-            dpi = dpi_changed.recv() => {
-                if let Some(dpi) = dpi {
-                    println!("dpi_changed: {}", dpi);
-                }
-            }
-            data = drop_files.recv() => {
-                if let Some(data) = data {
-                    println!("drop_files: {:?}", data);
-                }
-            }
-            close_req = close_request.recv() => {
-                if let Some(close_req) = close_req {
-                    println!("close_request");
-                    close_req.close();
-                }
-            }
-            v = closed.recv() => {
-                v.is_some().then(|| println!("closed"));
+            Some(_) = closed.recv() => {
+                println!("closed");
             }
             _ = awita::UiThread::finished() => break,
         }

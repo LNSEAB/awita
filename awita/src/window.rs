@@ -79,7 +79,7 @@ impl Builder {
     }
 
     #[inline]
-    pub fn ime(mut self, enable: bool) -> Self {
+    pub fn enable_ime(mut self, enable: bool) -> Self {
         self.enable_ime = enable;
         self
     }
@@ -292,6 +292,30 @@ impl Window {
         });
         rx.await.unwrap()
     }
+    
+    #[inline]
+    pub async fn position(&self) -> Option<Screen<Point<i32>>> {
+        let hwnd = self.hwnd.clone();
+        let (tx, rx) = oneshot::channel();
+        UiThread::post(move || unsafe {
+            let mut rc = RECT::default();
+            GetWindowRect(hwnd, &mut rc);
+            tx.send(Screen(Point::new(rc.left, rc.top))).ok();
+        });
+        rx.await.ok()
+    }
+
+    #[inline]
+    pub async fn inner_size(&self) -> Option<Physical<Size<u32>>> {
+        let hwnd = self.hwnd.clone();
+        let (tx, rx) = oneshot::channel();
+        UiThread::post(move || unsafe {
+            let mut rc = RECT::default();
+            GetClientRect(hwnd, &mut rc);
+            tx.send(Physical(Size::new(rc.right as _, rc.bottom as _))).ok();
+        });
+        rx.await.ok()
+    }
 
     #[inline]
     pub async fn dpi(&self) -> Option<u32> {
@@ -336,7 +360,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_ime(&self, enable: bool) {
+    pub fn set_enable_ime(&self, enable: bool) {
         let hwnd = self.hwnd.clone();
         UiThread::post_with_context(move |ctx| {
             if let Some(window) = ctx.get_window(hwnd) {
@@ -361,6 +385,16 @@ impl Window {
                 window.ime_position = position.to_physical(dpi);
             }
         });
+    }
+
+    #[inline]
+    pub async fn is_closed(&self) -> bool {
+        let hwnd = self.hwnd.clone();
+        let (tx, rx) = oneshot::channel();
+        UiThread::post_with_context(move |ctx| {
+            tx.send(ctx.get_window(hwnd).is_some()).ok();
+        });
+        rx.await.unwrap_or(false)
     }
 
     #[inline]

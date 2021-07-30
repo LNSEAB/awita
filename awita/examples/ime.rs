@@ -2,7 +2,7 @@
 async fn main() -> anyhow::Result<()> {
     let window = awita::window::Builder::new()
         .title("awita ime")
-        .ime(true)
+        .enable_ime(true)
         .visible_ime_candidate_window(false)
         .build()
         .await?;
@@ -14,10 +14,10 @@ async fn main() -> anyhow::Result<()> {
             Some(_) = ime_start_composition.recv() => {
 				println!("ime_start_composition");
             }
-            ret = ime_composition.recv() => {
+            Some(ret) = ime_composition.recv() => {
                 println!("ime_composition: {:?}", ret);
             }
-            ret = ime_end_composition.recv() => {
+            Some(ret) = ime_end_composition.recv() => {
 				println!("ime_end_composition: {:?}", ret);
             }
             _ = awita::UiThread::finished() => break,
