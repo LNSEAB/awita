@@ -392,9 +392,9 @@ impl Window {
         let hwnd = self.hwnd.clone();
         let (tx, rx) = oneshot::channel();
         UiThread::post_with_context(move |ctx| {
-            tx.send(ctx.get_window(hwnd).is_some()).ok();
+            tx.send(ctx.get_window(hwnd).is_none()).ok();
         });
-        rx.await.unwrap_or(false)
+        rx.await.unwrap_or(true)
     }
 
     #[inline]
