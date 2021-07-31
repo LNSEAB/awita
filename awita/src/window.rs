@@ -266,6 +266,8 @@ pub(crate) struct WindowState {
     pub cursor_leaved_channel: event::Channel<MouseState>,
     pub cursor_moved_chennel: event::Channel<MouseState>,
     pub mouse_input_channel: event::Channel<event::MouseInput>,
+    pub mouse_wheel_channel: event::Channel<event::MouseWheel>,
+    pub mouse_h_wheel_channel: event::Channel<event::MouseWheel>,
     pub key_input_channel: event::Channel<event::KeyInput>,
     pub char_input_channel: event::Channel<char>,
     pub ime_start_composition_channel: event::Channel<()>,
@@ -344,6 +346,8 @@ impl Window {
                     cursor_leaved_channel: event::Channel::new(8),
                     cursor_moved_chennel: event::Channel::new(128),
                     mouse_input_channel: event::Channel::new(64),
+                    mouse_wheel_channel: event::Channel::new(16),
+                    mouse_h_wheel_channel: event::Channel::new(16),
                     key_input_channel: event::Channel::new(256),
                     char_input_channel: event::Channel::new(256),
                     ime_start_composition_channel: event::Channel::new(1),
@@ -625,6 +629,16 @@ impl Window {
     #[inline]
     pub async fn mouse_input_receiver(&self) -> event::Receiver<event::MouseInput> {
         self.on_event(|state| &state.mouse_input_channel).await
+    }
+
+    #[inline]
+    pub async fn mouse_wheel_receiver(&self) -> event::Receiver<event::MouseWheel> {
+        self.on_event(|state| &state.mouse_wheel_channel).await
+    }
+
+    #[inline]
+    pub async fn mouse_h_wheel_receiver(&self) -> event::Receiver<event::MouseWheel> {
+        self.on_event(|state| &state.mouse_h_wheel_channel).await
     }
 
     #[inline]

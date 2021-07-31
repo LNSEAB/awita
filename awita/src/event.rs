@@ -49,6 +49,12 @@ pub struct MouseInput {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub struct MouseWheel {
+    pub delta: i16,
+    pub mouse_state: MouseState,
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct KeyInput {
     pub state: ButtonState,
     pub key_code: KeyCode,

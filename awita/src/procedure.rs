@@ -65,6 +65,10 @@ fn get_mouse_buttons(wparam: WPARAM) -> MouseButtons {
     buttons.into()
 }
 
+fn get_wheel_delta(wparam: WPARAM) -> i16 {
+    hiword(wparam.0 as _)
+}
+
 unsafe fn wm_paint(hwnd: HWND) -> LRESULT {
     let context = context();
     let mut ps = PAINTSTRUCT::default();
@@ -139,6 +143,33 @@ unsafe fn mouse_input(
             button_state,
             mouse_state,
         });
+    }
+    LRESULT(0)
+}
+
+unsafe fn mouse_wheel(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    let context = context();
+    let window = match context.get_window(hwnd) {
+        Some(window) => window,
+        None => return DefWindowProcW(hwnd, msg, wparam, lparam),
+    };
+    let buttons = get_mouse_buttons(wparam);
+    let delta = get_wheel_delta(wparam);
+    let position = lparam_to_point(lparam);
+    match msg {
+        WM_MOUSEWHEEL => {
+            window.mouse_wheel_channel.send(event::MouseWheel {
+                delta,
+                mouse_state: MouseState { buttons, position },
+            });
+        }
+        WM_MOUSEHWHEEL => {
+            window.mouse_h_wheel_channel.send(event::MouseWheel {
+                delta,
+                mouse_state: MouseState { buttons, position },
+            });
+        }
+        _ => unreachable!(),
     }
     LRESULT(0)
 }
@@ -520,6 +551,8 @@ pub(crate) unsafe extern "system" fn window_proc(
             wparam,
             lparam,
         ),
+        WM_MOUSEWHEEL => mouse_wheel(hwnd, WM_MOUSEWHEEL, wparam, lparam),
+        WM_MOUSEHWHEEL => mouse_wheel(hwnd, WM_MOUSEHWHEEL, wparam, lparam),
         WM_KEYDOWN => key_input(hwnd, WM_KEYDOWN, wparam, lparam),
         WM_KEYUP => key_input(hwnd, WM_KEYUP, wparam, lparam),
         WM_SYSKEYDOWN => key_input(hwnd, WM_SYSKEYDOWN, wparam, lparam),
