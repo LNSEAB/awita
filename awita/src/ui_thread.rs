@@ -17,7 +17,7 @@ static UI_THREAD: OnceCell<UiThread> = OnceCell::new();
 pub struct UiThread {
     thread_id: u32,
     method_tx: mpsc::UnboundedSender<Box<dyn FnOnce(&Context) + Send>>,
-    finish_rx: watch::Receiver<Option<bool>>,
+    finish_rx: watch::Receiver<Option<()>>,
     unwind_rx: Mutex<Option<oneshot::Receiver<Option<Box<dyn std::any::Any + Send>>>>>,
 }
 
@@ -46,14 +46,12 @@ impl UiThread {
         Self::get().finish_rx.borrow().is_none()
     }
 
-    pub async fn finished() -> bool {
+    pub async fn join() {
         let mut finish_rx = Self::get().finish_rx.clone();
         finish_rx.changed().await.unwrap();
-        let value = *finish_rx.borrow();
-        value.unwrap()
     }
 
-    pub async fn resume_unwind() {
+    pub async fn maybe_unwind() {
         let mut rx = Self::get().unwind_rx.lock().await;
         let rx = rx.take().unwrap();
         if let Some(e) = rx.await.unwrap() {
@@ -168,12 +166,12 @@ fn run() -> UiThread {
             }
             if let Some(e) = context().unwind.take() {
                 unwind_tx.send(Some(e)).ok();
-                finish_tx.send(Some(false)).ok();
+                finish_tx.send(Some(())).ok();
                 return;
             }
         }
         unwind_tx.send(None).ok();
-        finish_tx.send(Some(true)).ok();
+        finish_tx.send(Some(())).ok();
     });
     UiThread {
         thread_id: id_rx.recv().unwrap(),

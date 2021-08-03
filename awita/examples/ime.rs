@@ -20,9 +20,9 @@ async fn main() -> anyhow::Result<()> {
             Ok(ret) = ime_end_composition.recv() => {
                 println!("ime_end_composition: {:?}", ret);
             }
-            _ = awita::UiThread::finished() => break,
+            _ = awita::UiThread::join() => break,
         }
     }
-    awita::UiThread::resume_unwind().await;
+    awita::UiThread::maybe_unwind().await;
     Ok(())
 }

@@ -96,9 +96,9 @@ async fn main() -> anyhow::Result<()> {
             Ok(_) = closed.recv() => {
                 println!("closed");
             }
-            _ = awita::UiThread::finished() => break,
+            _ = awita::UiThread::join() => break,
         }
     }
-    awita::UiThread::resume_unwind().await;
+    awita::UiThread::maybe_unwind().await;
     Ok(())
 }
