@@ -2,6 +2,8 @@
 name = "awita_windows_bindings"
 version = "0.0.0"
 edition = "2018"
+description = "windows bindings for awita"
+license = "MIT"
 
 [dependencies]
 windows = "0.18.0"

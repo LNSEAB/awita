@@ -2,6 +2,13 @@
 name = "awita"
 version = "0.0.0"
 edition = "2018"
+keywords = ["windows"]
+categories = ["gui"]
+description = "An asynchronous window library in Rust for Windows"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/LNSEAB/awita"
+documentation = "https://docs.rs/awita"
 
 [dependencies]
 windows = "0.18.0"
