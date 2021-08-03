@@ -3,3 +3,6 @@ members = [
 	"awita",
 	"bindings",
 ]
+
+[patch.crates-io]
+awita_windows_bindings = { path = "bindings" }
