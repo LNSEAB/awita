@@ -15,8 +15,8 @@ async fn main() -> anyhow::Result<()> {
     let mut key_input = window.key_input_receiver().await;
     let mut char_input = window.char_input_receiver().await;
     let mut moved = window.moved_receiver().await;
-    let mut sizing = window.sizing_receiver().await;
-    let mut sized = window.sized_receiver().await;
+    let mut resizing = window.resizing_receiver().await;
+    let mut resized = window.resized_receiver().await;
     let mut activated = window.activated_receiver().await;
     let mut inactivated = window.inactivated_receiver().await;
     let mut dpi_changed = window.dpi_changed_receiver().await;
@@ -71,10 +71,10 @@ async fn main() -> anyhow::Result<()> {
             Ok(data) = moved.recv() => {
                 println!("moved: {:?}", data);
             }
-            Ok(data) = sizing.recv() => {
+            Ok(data) = resizing.recv() => {
                 println!("sizing: {:?}", data);
             }
-            Ok(data) = sized.recv() => {
+            Ok(data) = resized.recv() => {
                 println!("sized: {:?}", data);
             }
             Ok(_) = activated.recv() => {

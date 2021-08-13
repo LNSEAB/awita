@@ -16,6 +16,20 @@ where
         let rx = self.0.as_mut().unwrap();
         rx.recv().await.map_err(|_| Error::Closed)
     }
+
+    pub fn try_recv(&mut self) -> Result<Option<R>, Error> {
+        if self.0.is_none() {
+            return Err(Error::Closed);
+        }
+        let rx = self.0.as_mut().unwrap();
+        match rx.try_recv() {
+            Ok(r) => Ok(Some(r)),
+            Err(e) => match e {
+                async_broadcast::TryRecvError::Empty => Ok(None),
+                async_broadcast::TryRecvError::Closed => Err(Error::Closed),
+            }
+        }
+    }
 }
 
 pub(crate) struct Channel<T> {
@@ -27,6 +41,7 @@ impl<T> Channel<T>
 where
     T: Clone,
 {
+    #[inline]
     pub fn new(capacity: usize) -> Self {
         let (mut tx, rx) = async_broadcast::broadcast(capacity);
         tx.set_overflow(true);
@@ -36,6 +51,7 @@ where
         }
     }
 
+    #[inline]
     pub fn send(&self, value: T) {
         self.tx.try_broadcast(value).ok();
     }

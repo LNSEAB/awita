@@ -342,7 +342,7 @@ unsafe fn wm_size(hwnd: HWND, lparam: LPARAM) -> LRESULT {
     let value = lparam.0 as i32;
     let size = Physical(Size::new(loword(value) as u32, hiword(value) as u32));
     if let Some(window) = context.get_window(hwnd) {
-        window.sizing_channel.send(size);
+        window.resizing_channel.send(size);
     }
     LRESULT(0)
 }
@@ -359,7 +359,7 @@ unsafe fn wm_exit_size_move(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESU
     GetClientRect(hwnd, &mut rc);
     if let Some(window) = context.get_window(hwnd) {
         window
-            .sized_channel
+            .resized_channel
             .send(Physical(Size::new(rc.right as u32, rc.bottom as u32)));
     }
     DefWindowProcW(hwnd, WM_EXITSIZEMOVE, wparam, lparam)

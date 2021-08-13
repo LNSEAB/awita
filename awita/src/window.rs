@@ -274,8 +274,8 @@ pub(crate) struct WindowState {
     pub ime_composition_channel: event::Channel<(ime::Composition, Option<ime::CandidateList>)>,
     pub ime_end_composition_channel: event::Channel<Option<String>>,
     pub moved_channel: event::Channel<ScreenPoint<i32>>,
-    pub sizing_channel: event::Channel<PhysicalSize<u32>>,
-    pub sized_channel: event::Channel<PhysicalSize<u32>>,
+    pub resizing_channel: event::Channel<PhysicalSize<u32>>,
+    pub resized_channel: event::Channel<PhysicalSize<u32>>,
     pub activated_channel: event::Channel<()>,
     pub inactivated_channel: event::Channel<()>,
     pub dpi_changed_channel: event::Channel<u32>,
@@ -354,8 +354,8 @@ impl Window {
                     ime_composition_channel: event::Channel::new(1),
                     ime_end_composition_channel: event::Channel::new(1),
                     moved_channel: event::Channel::new(128),
-                    sizing_channel: event::Channel::new(128),
-                    sized_channel: event::Channel::new(1),
+                    resizing_channel: event::Channel::new(128),
+                    resized_channel: event::Channel::new(1),
                     activated_channel: event::Channel::new(1),
                     inactivated_channel: event::Channel::new(1),
                     dpi_changed_channel: event::Channel::new(1),
@@ -676,13 +676,13 @@ impl Window {
     }
 
     #[inline]
-    pub async fn sizing_receiver(&self) -> event::Receiver<PhysicalSize<u32>> {
-        self.on_event(|state| &state.sizing_channel).await
+    pub async fn resizing_receiver(&self) -> event::Receiver<PhysicalSize<u32>> {
+        self.on_event(|state| &state.resizing_channel).await
     }
 
     #[inline]
-    pub async fn sized_receiver(&self) -> event::Receiver<PhysicalSize<u32>> {
-        self.on_event(|state| &state.sized_channel).await
+    pub async fn resized_receiver(&self) -> event::Receiver<PhysicalSize<u32>> {
+        self.on_event(|state| &state.resized_channel).await
     }
 
     #[inline]
