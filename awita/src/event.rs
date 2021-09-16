@@ -27,7 +27,7 @@ where
             Err(e) => match e {
                 async_broadcast::TryRecvError::Empty => Ok(None),
                 async_broadcast::TryRecvError::Closed => Err(Error::Closed),
-            }
+            },
         }
     }
 }
