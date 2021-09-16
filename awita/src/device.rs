@@ -1,10 +1,13 @@
 use super::*;
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ButtonState {
     Pressed,
     Released,
 }
+
+pub type KeyState = ButtonState;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -332,5 +335,10 @@ mod tests {
         assert!(VirtualKeyCode(VirtualKey::RCtrl as u32) == VirtualKey::Ctrl);
         assert!(VirtualKeyCode(VirtualKey::LAlt as u32) == VirtualKey::Alt);
         assert!(VirtualKeyCode(VirtualKey::RAlt as u32) == VirtualKey::Alt);
+    }
+
+    #[test]
+    fn button_state_and_key_state() {
+        assert!(ButtonState::Pressed == KeyState::Pressed);
     }
 }
