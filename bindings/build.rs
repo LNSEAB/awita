@@ -41,6 +41,6 @@ fn main() {
         Windows::Win32::System::Com::{
             CoInitialize,
             CoCreateInstance,
-        }
+        },
     );
 }
