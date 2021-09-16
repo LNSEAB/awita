@@ -83,6 +83,16 @@ impl Style {
         }
         self
     }
+
+    #[inline]
+    pub const fn no_redirection_bitmap(mut self, flag: bool) -> Self {
+        if flag {
+            self.ex |= WS_EX_NOREDIRECTIONBITMAP.0;
+        } else {
+            self.ex &= !WS_EX_NOREDIRECTIONBITMAP.0;
+        }
+        self
+    }
 }
 
 impl Default for Style {
