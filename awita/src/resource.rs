@@ -19,7 +19,7 @@ impl Icon {
         unsafe {
             let icon = match self {
                 Icon::Resource(id) => LoadImageW(
-                    HINSTANCE::NULL,
+                    HINSTANCE::default(),
                     make_int_resource(*id),
                     IMAGE_ICON,
                     cx,
@@ -27,7 +27,7 @@ impl Icon {
                     LR_SHARED,
                 ),
                 Icon::File(path) => LoadImageW(
-                    HINSTANCE::NULL,
+                    HINSTANCE::default(),
                     path.to_string_lossy().as_ref(),
                     IMAGE_ICON,
                     cx,
@@ -35,8 +35,8 @@ impl Icon {
                     LR_SHARED | LR_LOADFROMFILE,
                 ),
             };
-            if icon == HANDLE::NULL {
-                return Err(windows::HRESULT::from_thread().into());
+            if icon == HANDLE::default() {
+                return Err(windows::Error::from_win32());
             }
             Ok(HICON(icon.0))
         }
@@ -97,7 +97,7 @@ impl Cursor {
 
     pub(crate) fn set(&self) {
         unsafe {
-            SetCursor(LoadCursorW(HINSTANCE::NULL, self.name()));
+            SetCursor(LoadCursorW(HINSTANCE::default(), self.name()));
         }
     }
 }

@@ -154,7 +154,7 @@ fn run() -> UiThread {
         id_tx.send(GetCurrentThreadId()).unwrap();
         let mut msg = MSG::default();
         loop {
-            let ret = GetMessageW(&mut msg, HWND::NULL, 0, 0).0;
+            let ret = GetMessageW(&mut msg, HWND::default(), 0, 0).0;
             if ret == 0 || ret == -1 {
                 break;
             }

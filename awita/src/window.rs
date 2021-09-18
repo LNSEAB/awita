@@ -326,8 +326,8 @@ impl Window {
                 GetModuleHandleW(None),
                 std::ptr::null_mut(),
             );
-            if hwnd.is_null() {
-                tx.send(Err(windows::HRESULT::from_thread().into())).ok();
+            if hwnd == HWND::default() {
+                tx.send(Err(windows::Error::from_win32().into())).ok();
                 return;
             }
             if let Some(icon) = builder.icon {
@@ -442,7 +442,7 @@ impl Window {
             let position = position.to_physical(dpi);
             SetWindowPos(
                 hwnd,
-                HWND::NULL,
+                HWND::default(),
                 position.x,
                 position.y,
                 0,
@@ -476,7 +476,7 @@ impl Window {
             let size = size.to_physical(dpi);
             SetWindowPos(
                 hwnd,
-                HWND::NULL,
+                HWND::default(),
                 0,
                 0,
                 size.width as _,
@@ -499,14 +499,14 @@ impl Window {
     #[inline]
     pub fn show(&self) {
         unsafe {
-            ShowWindowAsync(self.hwnd, SW_SHOW.0 as _);
+            ShowWindowAsync(self.hwnd, SW_SHOW);
         }
     }
 
     #[inline]
     pub fn hide(&self) {
         unsafe {
-            ShowWindowAsync(self.hwnd, SW_HIDE.0 as _);
+            ShowWindowAsync(self.hwnd, SW_HIDE);
         }
     }
 
@@ -514,7 +514,7 @@ impl Window {
     pub fn redraw(&self) {
         let hwnd = self.hwnd.clone();
         UiThread::post(move || unsafe {
-            RedrawWindow(hwnd, std::ptr::null(), HRGN::NULL, RDW_INTERNALPAINT);
+            RedrawWindow(hwnd, std::ptr::null(), HRGN::default(), RDW_INTERNALPAINT);
         });
     }
 

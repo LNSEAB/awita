@@ -187,23 +187,23 @@ unsafe fn key_input(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRE
     };
     let scan_code = ((lparam.0 >> 16) & 0xff) as u32;
     let extended = (lparam.0 >> 24) & 0x01 != 0;
-    let vkey = match wparam.0 as u32 {
+    let vkey = match VIRTUAL_KEY(wparam.0 as _) {
         VK_SHIFT => MapVirtualKeyW(scan_code, MAPVK_VSC_TO_VK_EX),
         VK_CONTROL => {
             if extended {
-                VK_RCONTROL
+                VK_RCONTROL.0 as _
             } else {
-                VK_LCONTROL
+                VK_LCONTROL.0 as _
             }
         }
         VK_MENU => {
             if extended {
-                VK_RMENU
+                VK_RMENU.0 as _
             } else {
-                VK_LMENU
+                VK_LMENU.0 as _
             }
         }
-        v => v,
+        v => v.0 as _,
     };
     let key_code = KeyCode {
         vkey: VirtualKeyCode(vkey),
@@ -370,7 +370,7 @@ unsafe fn wm_dpi_changed(hwnd: HWND, lparam: LPARAM) -> LRESULT {
     let rc = *(lparam.0 as *const RECT);
     SetWindowPos(
         hwnd,
-        HWND::NULL,
+        HWND::default(),
         rc.left,
         rc.top,
         rc.right - rc.left,
@@ -425,11 +425,11 @@ unsafe fn wm_drop_files(hwnd: HWND, wparam: WPARAM) -> LRESULT {
         None => return LRESULT(0),
     };
     let hdrop = HDROP(wparam.0 as _);
-    let count = DragQueryFileW(hdrop, u32::MAX, PWSTR::NULL, 0);
+    let count = DragQueryFileW(hdrop, u32::MAX, PWSTR::default(), 0);
     let mut buffer = vec![];
     let mut files: Vec<std::path::PathBuf> = Vec::with_capacity(count as usize);
     for i in 0..count {
-        let len = DragQueryFileW(hdrop, i, PWSTR::NULL, 0) as usize + 1;
+        let len = DragQueryFileW(hdrop, i, PWSTR::default(), 0) as usize + 1;
         buffer.resize(len, 0);
         DragQueryFileW(hdrop, i, PWSTR(buffer.as_mut_ptr()), len as u32);
         buffer.pop();
