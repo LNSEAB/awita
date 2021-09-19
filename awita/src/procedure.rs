@@ -337,12 +337,18 @@ unsafe fn wm_move(hwnd: HWND, lparam: LPARAM) -> LRESULT {
     LRESULT(0)
 }
 
-unsafe fn wm_size(hwnd: HWND, lparam: LPARAM) -> LRESULT {
+unsafe fn wm_size(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     let context = context();
     let value = lparam.0 as i32;
     let size = Physical(Size::new(loword(value) as u32, hiword(value) as u32));
     if let Some(window) = context.get_window(hwnd) {
         window.resizing_channel.send(size);
+        match wparam.0 as u32 {
+            SIZE_MINIMIZED | SIZE_MAXIMIZED | SIZE_RESTORED => {
+                window.resized_channel.send(size);
+            }
+            _ => {}
+        }
     }
     LRESULT(0)
 }
@@ -563,7 +569,7 @@ pub(crate) unsafe extern "system" fn window_proc(
         WM_IME_COMPOSITION => wm_ime_composition(hwnd, wparam, lparam),
         WM_IME_ENDCOMPOSITION => wm_ime_end_composition(hwnd, wparam, lparam),
         WM_MOVE => wm_move(hwnd, lparam),
-        WM_SIZE => wm_size(hwnd, lparam),
+        WM_SIZE => wm_size(hwnd, wparam, lparam),
         WM_ENTERSIZEMOVE => wm_enter_size_move(hwnd, wparam, lparam),
         WM_EXITSIZEMOVE => wm_exit_size_move(hwnd, wparam, lparam),
         WM_DPICHANGED => wm_dpi_changed(hwnd, lparam),

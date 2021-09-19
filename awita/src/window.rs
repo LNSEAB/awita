@@ -7,6 +7,7 @@ use awita_windows_bindings::Windows::Win32::{
 };
 use once_cell::sync::OnceCell;
 use tokio::sync::{mpsc, oneshot};
+use windows::Handle;
 
 pub trait StyleObject {
     fn value(&self) -> u32;
@@ -326,7 +327,7 @@ impl Window {
                 GetModuleHandleW(None),
                 std::ptr::null_mut(),
             );
-            if hwnd == HWND::default() {
+            if hwnd.is_invalid() {
                 tx.send(Err(windows::Error::from_win32().into())).ok();
                 return;
             }

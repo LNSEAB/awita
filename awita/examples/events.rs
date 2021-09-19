@@ -72,10 +72,10 @@ async fn main() -> anyhow::Result<()> {
                 println!("moved: {:?}", data);
             }
             Ok(data) = resizing.recv() => {
-                println!("sizing: {:?}", data);
+                println!("resizing: {:?}", data);
             }
             Ok(data) = resized.recv() => {
-                println!("sized: {:?}", data);
+                println!("resized: {:?}", data);
             }
             Ok(_) = activated.recv() => {
                 println!("activated");
