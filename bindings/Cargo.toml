@@ -6,7 +6,7 @@ description = "windows bindings for awita"
 license = "MIT"
 
 [dependencies]
-windows = "0.20.1"
+windows = "0.21.0"
 
 [build-dependencies]
-windows = "0.20.1"
+windows = "0.21.0"

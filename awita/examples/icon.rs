@@ -1,6 +1,6 @@
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    awita::window::Builder::new()
+    awita::Window::builder()
         .title("awita icon")
         .icon(awita::Icon::File("examples/icon.ico".into()))
         .build()

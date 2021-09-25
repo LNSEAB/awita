@@ -1,6 +1,6 @@
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let window = awita::window::Builder::new()
+    let window = awita::Window::builder()
         .title("awita ime")
         .enable_ime(true)
         .visible_ime_candidate_window(false)

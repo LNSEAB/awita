@@ -1,6 +1,6 @@
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let window = awita::window::Builder::new()
+    let window = awita::Window::builder()
         .title("awita hello")
         .build()
         .await?;

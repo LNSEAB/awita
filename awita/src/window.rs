@@ -388,6 +388,11 @@ impl Window {
     }
 
     #[inline]
+    pub fn builder() -> Builder {
+        Builder::new()
+    }
+
+    #[inline]
     pub async fn title(&self) -> Result<String, Error> {
         let hwnd = self.hwnd.clone();
         let (tx, rx) = oneshot::channel();

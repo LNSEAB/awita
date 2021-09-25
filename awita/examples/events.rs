@@ -1,6 +1,6 @@
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
-    let window = awita::window::Builder::new()
+    let window = awita::Window::builder()
         .title("awita events")
         .accept_drop_files(true)
         .build()
