@@ -345,7 +345,9 @@ unsafe fn wm_size(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         window.resizing_channel.send(size);
         match wparam.0 as u32 {
             SIZE_MINIMIZED | SIZE_MAXIMIZED | SIZE_RESTORED => {
-                window.resized_channel.send(size);
+                if !context.resizing.get() {
+                    window.resized_channel.send(size);
+                }
             }
             _ => {}
         }
