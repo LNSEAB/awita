@@ -1,6 +1,6 @@
 [package]
 name = "awita_windows_bindings"
-version = "0.0.4"
+version = "0.1.0"
 edition = "2018"
 description = "windows bindings for awita"
 license = "MIT"
