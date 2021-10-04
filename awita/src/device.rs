@@ -70,9 +70,22 @@ impl MouseButtons {
     }
 
     #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.0 == 0
+    }
+
+    #[inline]
     pub fn contains(&self, button: MouseButton) -> bool {
         let button = button as u32;
         (self.0 & button) == button
+    }
+
+    #[inline]
+    pub fn iter(&self) -> MouseButtonsIter {
+        MouseButtonsIter {
+            buttons: self,
+            index: 0,
+        }
     }
 }
 
@@ -102,6 +115,60 @@ impl std::fmt::Debug for MouseButtons {
             i += 1;
         }
         write!(f, "])")
+    }
+}
+
+#[derive(Clone)]
+pub struct MouseButtonsIter<'a> {
+    buttons: &'a MouseButtons,
+    index: u32,
+}
+
+impl<'a> std::iter::Iterator for MouseButtonsIter<'a> {
+    type Item = MouseButton;
+    
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= 32 {
+            return None;
+        }
+        let index = (self.index..32).find(|i| {
+            let button = MouseButton::from_u32(1 << i);
+            self.buttons.contains(button)
+        })?;
+        self.index = index + 1;
+        Some(MouseButton::from_u32(1 << index))
+    }
+}
+
+impl std::ops::BitOr<MouseButton> for MouseButton {
+    type Output = MouseButtons;
+
+    fn bitor(self, rhs: MouseButton) -> MouseButtons {
+        MouseButtons(self as u32 | rhs as u32)
+    }
+}
+
+impl std::ops::BitOr<MouseButton> for MouseButtons {
+    type Output = MouseButtons;
+
+    fn bitor(self, rhs: MouseButton) -> Self::Output {
+        MouseButtons(self.0 | rhs as u32)
+    }
+}
+
+impl std::ops::BitOr<MouseButtons> for MouseButton {
+    type Output =  MouseButtons;
+
+    fn bitor(self, rhs: MouseButtons) -> MouseButtons {
+        MouseButtons((self as u32) | rhs.0)
+    }
+}
+
+impl std::ops::BitOr<MouseButtons> for MouseButtons {
+    type Output = MouseButtons;
+
+    fn bitor(self, rhs: MouseButtons) -> Self::Output {
+        MouseButtons(self.0 | rhs.0)
     }
 }
 
@@ -303,6 +370,60 @@ mod tests {
         assert!(MouseButton::Left == MouseButton::from_u32(1u32 << 0));
         assert!(MouseButton::Right == MouseButton::from_u32(1u32 << 1));
         assert!(MouseButton::Middle == MouseButton::from_u32(1u32 << 2));
+    }
+
+    #[test]
+    fn mouse_buttons_iter() {
+        let buttons = MouseButtons::new(&[MouseButton::Left, MouseButton::Middle, MouseButton::Ex1]);
+        let mut iter = buttons.iter();
+        assert!(Some(MouseButton::Left) == iter.next());
+        assert!(Some(MouseButton::Middle) == iter.next());
+        assert!(Some(MouseButton::Ex1) == iter.next());
+        assert!(None == iter.next());
+    }
+
+    #[test]
+    fn mouse_button_bitor_mouse_button() {
+        let ret = MouseButton::Left | MouseButton::Right;
+        let mut iter = ret.iter();
+        assert!(Some(MouseButton::Left) == iter.next());
+        assert!(Some(MouseButton::Right) == iter.next());
+        assert!(None == iter.next());
+    }
+
+    #[test]
+    fn mouse_buttons_bitor_mouse_button() {
+        let buttons = MouseButton::Left | MouseButton::Right;
+        let ret = buttons | MouseButton::Middle;
+        let mut iter = ret.iter();
+        assert!(Some(MouseButton::Left) == iter.next());
+        assert!(Some(MouseButton::Right) == iter.next());
+        assert!(Some(MouseButton::Middle) == iter.next());
+        assert!(None == iter.next());
+    }
+
+    #[test]
+    fn mouse_button_bitor_mouse_buttons() {
+        let buttons = MouseButton::Left | MouseButton::Right;
+        let ret = MouseButton::Middle | buttons;
+        let mut iter = ret.iter();
+        assert!(Some(MouseButton::Left) == iter.next());
+        assert!(Some(MouseButton::Right) == iter.next());
+        assert!(Some(MouseButton::Middle) == iter.next());
+        assert!(None == iter.next());
+    }
+
+    #[test]
+    fn mouse_buttons_bitor_mouse_buttons() {
+        let b0 = MouseButton::Left | MouseButton::Right;
+        let b1 = MouseButton::Middle | MouseButton::Ex28;
+        let ret = b0 | b1;
+        let mut iter = ret.iter();
+        assert!(Some(MouseButton::Left) == iter.next());
+        assert!(Some(MouseButton::Right) == iter.next());
+        assert!(Some(MouseButton::Middle) == iter.next());
+        assert!(Some(MouseButton::Ex28) == iter.next());
+        assert!(None == iter.next());
     }
 
     #[test]
