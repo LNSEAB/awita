@@ -11,7 +11,7 @@ repository = "https://github.com/LNSEAB/awita"
 documentation = "https://docs.rs/awita"
 
 [dependencies]
-windows = "0.21.0"
+windows = "0.21.1"
 awita_windows_bindings = { path = "../bindings", version = "^0.1.0"}
 thiserror = "1.0.29"
 gecl = "0.0.2"
