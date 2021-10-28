@@ -1,19 +1,21 @@
+use windows::runtime::HRESULT;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Error::Api: {}", .0)]
-    Api(windows::Error),
+    Api(windows::runtime::Error),
     #[error("closed")]
     Closed,
 }
 
-impl From<windows::HRESULT> for Error {
-    fn from(src: windows::HRESULT) -> Self {
+impl From<HRESULT> for Error {
+    fn from(src: HRESULT) -> Self {
         Self::Api(src.into())
     }
 }
 
-impl From<windows::Error> for Error {
-    fn from(src: windows::Error) -> Self {
+impl From<windows::runtime::Error> for Error {
+    fn from(src: windows::runtime::Error) -> Self {
         Self::Api(src)
     }
 }

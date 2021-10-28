@@ -1,5 +1,5 @@
 use super::*;
-use awita_windows_bindings::Windows::Win32::{Foundation::*, Globalization::*};
+use windows::Win32::{Foundation::*, Globalization::*};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Attribute {

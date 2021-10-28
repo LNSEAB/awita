@@ -1,5 +1,5 @@
 use super::*;
-use awita_windows_bindings::Windows::Win32::{
+use windows::Win32::{
     Foundation::*,
     UI::{HiDpi::*, WindowsAndMessaging::*},
 };

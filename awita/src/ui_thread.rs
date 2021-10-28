@@ -1,5 +1,5 @@
 use crate::window::WindowState;
-use awita_windows_bindings::Windows::Win32::{
+use windows::Win32::{
     Foundation::*,
     System::{Com::*, Threading::*},
     UI::{HiDpi::*, WindowsAndMessaging::*},

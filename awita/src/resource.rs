@@ -1,4 +1,4 @@
-use awita_windows_bindings::Windows::Win32::{
+use windows::Win32::{
     Foundation::*,
     UI::{Controls::*, WindowsAndMessaging::*},
 };
@@ -15,7 +15,7 @@ pub enum Icon {
 }
 
 impl Icon {
-    fn load_impl(&self, cx: i32, cy: i32) -> windows::Result<HICON> {
+    fn load_impl(&self, cx: i32, cy: i32) -> windows::runtime::Result<HICON> {
         unsafe {
             let icon = match self {
                 Icon::Resource(id) => LoadImageW(
@@ -36,17 +36,17 @@ impl Icon {
                 ),
             };
             if icon == HANDLE::default() {
-                return Err(windows::Error::from_win32());
+                return Err(windows::runtime::Error::from_win32());
             }
             Ok(HICON(icon.0))
         }
     }
 
-    pub(crate) fn load(&self) -> windows::Result<HICON> {
+    pub(crate) fn load(&self) -> windows::runtime::Result<HICON> {
         unsafe { self.load_impl(GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON)) }
     }
 
-    pub(crate) fn load_small(&self) -> windows::Result<HICON> {
+    pub(crate) fn load_small(&self) -> windows::runtime::Result<HICON> {
         unsafe { self.load_impl(GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON)) }
     }
 }

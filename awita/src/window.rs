@@ -1,13 +1,15 @@
 use super::*;
-use awita_windows_bindings::Windows::Win32::{
-    Foundation::*,
-    Graphics::Gdi::*,
-    System::LibraryLoader::GetModuleHandleW,
-    UI::{HiDpi::*, Shell::*, WindowsAndMessaging::*},
+use windows::{
+    runtime::Handle,
+    Win32::{
+        Foundation::*,
+        Graphics::Gdi::*,
+        System::LibraryLoader::GetModuleHandleW,
+        UI::{HiDpi::*, Shell::*, WindowsAndMessaging::*}
+    }
 };
 use once_cell::sync::OnceCell;
 use tokio::sync::{mpsc, oneshot};
-use windows::Handle;
 
 pub trait StyleObject {
     fn value(&self) -> u32;
@@ -328,7 +330,7 @@ impl Window {
                 std::ptr::null_mut(),
             );
             if hwnd.is_invalid() {
-                tx.send(Err(windows::Error::from_win32().into())).ok();
+                tx.send(Err(windows::runtime::Error::from_win32().into())).ok();
                 return;
             }
             if let Some(icon) = builder.icon {
@@ -352,20 +354,20 @@ impl Window {
                     ime_candidate_window_visibility: builder.ime_candidate_window_visibility,
                     ime_context: ime::ImmContext::new(hwnd),
                     ime_position: Physical(Point::new(0, 0)),
-                    draw_channel: event::Channel::new(8),
-                    cursor_entered_channel: event::Channel::new(8),
-                    cursor_leaved_channel: event::Channel::new(8),
-                    cursor_moved_chennel: event::Channel::new(128),
-                    mouse_input_channel: event::Channel::new(64),
-                    mouse_wheel_channel: event::Channel::new(16),
-                    mouse_h_wheel_channel: event::Channel::new(16),
-                    key_input_channel: event::Channel::new(256),
-                    char_input_channel: event::Channel::new(256),
+                    draw_channel: event::Channel::new(1),
+                    cursor_entered_channel: event::Channel::new(1),
+                    cursor_leaved_channel: event::Channel::new(1),
+                    cursor_moved_chennel: event::Channel::new(1),
+                    mouse_input_channel: event::Channel::new(1),
+                    mouse_wheel_channel: event::Channel::new(1),
+                    mouse_h_wheel_channel: event::Channel::new(1),
+                    key_input_channel: event::Channel::new(8),
+                    char_input_channel: event::Channel::new(8),
                     ime_start_composition_channel: event::Channel::new(1),
                     ime_composition_channel: event::Channel::new(1),
                     ime_end_composition_channel: event::Channel::new(1),
-                    moved_channel: event::Channel::new(128),
-                    resizing_channel: event::Channel::new(128),
+                    moved_channel: event::Channel::new(1),
+                    resizing_channel: event::Channel::new(1),
                     resized_channel: event::Channel::new(1),
                     activated_channel: event::Channel::new(1),
                     inactivated_channel: event::Channel::new(1),
