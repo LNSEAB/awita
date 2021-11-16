@@ -1,15 +1,15 @@
 use super::*;
+use once_cell::sync::OnceCell;
+use tokio::sync::{mpsc, oneshot};
 use windows::{
-    runtime::Handle,
+    core::Handle,
     Win32::{
         Foundation::*,
         Graphics::Gdi::*,
         System::LibraryLoader::GetModuleHandleW,
-        UI::{HiDpi::*, Shell::*, WindowsAndMessaging::*}
-    }
+        UI::{HiDpi::*, Shell::*, WindowsAndMessaging::*},
+    },
 };
-use once_cell::sync::OnceCell;
-use tokio::sync::{mpsc, oneshot};
 
 pub trait StyleObject {
     fn value(&self) -> u32;
@@ -330,7 +330,7 @@ impl Window {
                 std::ptr::null_mut(),
             );
             if hwnd.is_invalid() {
-                tx.send(Err(windows::runtime::Error::from_win32().into())).ok();
+                tx.send(Err(windows::core::Error::from_win32().into())).ok();
                 return;
             }
             if let Some(icon) = builder.icon {

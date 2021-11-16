@@ -1,5 +1,5 @@
 use super::*;
-use windows::Win32::{Foundation::*, Globalization::*};
+use windows::Win32::{Foundation::*, Globalization::*, UI::Input::Ime::*};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Attribute {

@@ -126,7 +126,7 @@ pub struct MouseButtonsIter<'a> {
 
 impl<'a> std::iter::Iterator for MouseButtonsIter<'a> {
     type Item = MouseButton;
-    
+
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= 32 {
             return None;
@@ -157,7 +157,7 @@ impl std::ops::BitOr<MouseButton> for MouseButtons {
 }
 
 impl std::ops::BitOr<MouseButtons> for MouseButton {
-    type Output =  MouseButtons;
+    type Output = MouseButtons;
 
     fn bitor(self, rhs: MouseButtons) -> MouseButtons {
         MouseButtons((self as u32) | rhs.0)
@@ -374,7 +374,8 @@ mod tests {
 
     #[test]
     fn mouse_buttons_iter() {
-        let buttons = MouseButtons::new(&[MouseButton::Left, MouseButton::Middle, MouseButton::Ex1]);
+        let buttons =
+            MouseButtons::new(&[MouseButton::Left, MouseButton::Middle, MouseButton::Ex1]);
         let mut iter = buttons.iter();
         assert!(Some(MouseButton::Left) == iter.next());
         assert!(Some(MouseButton::Middle) == iter.next());

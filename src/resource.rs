@@ -1,8 +1,5 @@
-use windows::Win32::{
-    Foundation::*,
-    UI::{Controls::*, WindowsAndMessaging::*},
-};
 use std::path::{Path, PathBuf};
+use windows::Win32::{Foundation::*, UI::WindowsAndMessaging::*};
 
 fn make_int_resource(id: u16) -> PWSTR {
     PWSTR(id as _)
@@ -15,7 +12,7 @@ pub enum Icon {
 }
 
 impl Icon {
-    fn load_impl(&self, cx: i32, cy: i32) -> windows::runtime::Result<HICON> {
+    fn load_impl(&self, cx: i32, cy: i32) -> windows::core::Result<HICON> {
         unsafe {
             let icon = match self {
                 Icon::Resource(id) => LoadImageW(
@@ -36,17 +33,17 @@ impl Icon {
                 ),
             };
             if icon == HANDLE::default() {
-                return Err(windows::runtime::Error::from_win32());
+                return Err(windows::core::Error::from_win32());
             }
             Ok(HICON(icon.0))
         }
     }
 
-    pub(crate) fn load(&self) -> windows::runtime::Result<HICON> {
+    pub(crate) fn load(&self) -> windows::core::Result<HICON> {
         unsafe { self.load_impl(GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON)) }
     }
 
-    pub(crate) fn load_small(&self) -> windows::runtime::Result<HICON> {
+    pub(crate) fn load_small(&self) -> windows::core::Result<HICON> {
         unsafe { self.load_impl(GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON)) }
     }
 }

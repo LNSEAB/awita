@@ -1,11 +1,16 @@
 use super::*;
+use std::rc::Rc;
 use windows::Win32::{
     Foundation::*,
-    Globalization::*,
     Graphics::Gdi::*,
-    UI::{Controls::*, HiDpi::*, KeyboardAndMouseInput::*, Shell::*, WindowsAndMessaging::*},
+    UI::{
+        Controls::*,
+        HiDpi::*,
+        Input::{Ime::*, KeyboardAndMouse::*},
+        Shell::*,
+        WindowsAndMessaging::*,
+    },
 };
-use std::rc::Rc;
 
 fn context() -> Rc<Context> {
     CONTEXT.with(|ctx| ctx.borrow().as_ref().unwrap().clone())

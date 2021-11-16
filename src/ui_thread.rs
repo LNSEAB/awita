@@ -1,14 +1,14 @@
 use crate::window::WindowState;
-use windows::Win32::{
-    Foundation::*,
-    System::{Com::*, Threading::*},
-    UI::{HiDpi::*, WindowsAndMessaging::*},
-};
 use once_cell::sync::OnceCell;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::HashMap;
 use std::rc::Rc;
 use tokio::sync::{mpsc, oneshot, watch, Mutex};
+use windows::Win32::{
+    Foundation::*,
+    System::{Com::*, Threading::*},
+    UI::{HiDpi::*, WindowsAndMessaging::*},
+};
 
 const WM_AWITA_METHOD: u32 = WM_APP + 1;
 
