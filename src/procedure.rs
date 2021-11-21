@@ -107,9 +107,8 @@ unsafe fn wm_mouse_move(hwnd: HWND, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
             cursor.set();
         }
         window.cursor_entered_channel.send(state);
-    } else {
-        window.cursor_moved_chennel.send(state);
     }
+    window.cursor_moved_chennel.send(state);
     LRESULT(0)
 }
 
@@ -139,6 +138,10 @@ unsafe fn mouse_input(
 ) -> LRESULT {
     let context = context();
     if let Some(window) = context.get_window(hwnd) {
+        match button_state {
+            ButtonState::Pressed => { SetCapture(hwnd); }
+            ButtonState::Released => { ReleaseCapture(); }
+        }
         let mouse_state = MouseState {
             position: lparam_to_point(lparam),
             buttons: get_mouse_buttons(wparam),
