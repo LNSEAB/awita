@@ -35,7 +35,7 @@ impl Icon {
             if icon == HANDLE::default() {
                 return Err(windows::core::Error::from_win32());
             }
-            Ok(HICON(icon.0))
+            Ok(icon.0)
         }
     }
 

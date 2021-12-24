@@ -2,7 +2,6 @@ use super::*;
 use once_cell::sync::OnceCell;
 use tokio::sync::{mpsc, oneshot};
 use windows::{
-    core::Handle,
     Win32::{
         Foundation::*,
         Graphics::Gdi::*,
@@ -21,7 +20,7 @@ pub struct BorderlessStyle;
 
 impl StyleObject for BorderlessStyle {
     fn value(&self) -> u32 {
-        WS_POPUP.0
+        WS_POPUP
     }
 
     fn ex(&self) -> u32 {
@@ -39,7 +38,7 @@ impl Style {
     #[inline]
     pub const fn new() -> Self {
         Self {
-            value: WS_OVERLAPPEDWINDOW.0,
+            value: WS_OVERLAPPEDWINDOW,
             ex: 0,
         }
     }
@@ -47,7 +46,7 @@ impl Style {
     #[inline]
     pub const fn dialog() -> Self {
         Self {
-            value: WS_OVERLAPPED.0 | WS_CAPTION.0 | WS_SYSMENU.0,
+            value: WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
             ex: 0,
         }
     }
@@ -60,9 +59,9 @@ impl Style {
     #[inline]
     pub const fn resizable(mut self, resizable: bool) -> Self {
         if resizable {
-            self.value |= WS_THICKFRAME.0;
+            self.value |= WS_THICKFRAME;
         } else {
-            self.value &= !WS_THICKFRAME.0;
+            self.value &= !WS_THICKFRAME;
         }
         self
     }
@@ -70,9 +69,9 @@ impl Style {
     #[inline]
     pub const fn has_minimize_box(mut self, flag: bool) -> Self {
         if flag {
-            self.value |= WS_MINIMIZEBOX.0;
+            self.value |= WS_MINIMIZEBOX;
         } else {
-            self.value &= !WS_MINIMIZEBOX.0;
+            self.value &= !WS_MINIMIZEBOX;
         }
         self
     }
@@ -80,9 +79,9 @@ impl Style {
     #[inline]
     pub const fn has_maximize_box(mut self, flag: bool) -> Self {
         if flag {
-            self.value |= WS_MAXIMIZEBOX.0;
+            self.value |= WS_MAXIMIZEBOX;
         } else {
-            self.value &= !WS_MAXIMIZEBOX.0;
+            self.value &= !WS_MAXIMIZEBOX;
         }
         self
     }
@@ -90,9 +89,9 @@ impl Style {
     #[inline]
     pub const fn no_redirection_bitmap(mut self, flag: bool) -> Self {
         if flag {
-            self.ex |= WS_EX_NOREDIRECTIONBITMAP.0;
+            self.ex |= WS_EX_NOREDIRECTIONBITMAP;
         } else {
-            self.ex &= !WS_EX_NOREDIRECTIONBITMAP.0;
+            self.ex &= !WS_EX_NOREDIRECTIONBITMAP;
         }
         self
     }
@@ -242,7 +241,7 @@ fn window_class() -> &'static Vec<u16> {
             style: CS_HREDRAW | CS_VREDRAW,
             lpfnWndProc: Some(procedure::window_proc),
             hInstance: GetModuleHandleW(None),
-            hbrBackground: HBRUSH(GetStockObject(WHITE_BRUSH).0),
+            hbrBackground: GetStockObject(WHITE_BRUSH),
             lpszClassName: PWSTR(class_name.as_ptr() as _),
             ..Default::default()
         };
@@ -314,12 +313,12 @@ impl Window {
                 .collect::<Vec<_>>();
             let size = builder.size.to_physical(dpi);
             let size =
-                utility::adjust_window_size(size, WS_OVERLAPPEDWINDOW, WINDOW_EX_STYLE(0), dpi);
+                utility::adjust_window_size(size, WS_OVERLAPPEDWINDOW, 0, dpi);
             let hwnd = CreateWindowExW(
-                WINDOW_EX_STYLE(builder.style.ex),
+                builder.style.ex,
                 PWSTR(window_class().as_ptr() as _),
                 PWSTR(title.as_ptr() as _),
-                WINDOW_STYLE(builder.style.value),
+                builder.style.value,
                 builder.position.x,
                 builder.position.y,
                 size.width as _,
@@ -329,19 +328,19 @@ impl Window {
                 GetModuleHandleW(None),
                 std::ptr::null_mut(),
             );
-            if hwnd.is_invalid() {
+            if hwnd == 0 {
                 tx.send(Err(windows::core::Error::from_win32().into())).ok();
                 return;
             }
             if let Some(icon) = builder.icon {
                 let big = icon.load().unwrap();
-                SendMessageW(hwnd, WM_SETICON, WPARAM(ICON_BIG as _), LPARAM(big.0 as _));
+                SendMessageW(hwnd, WM_SETICON, ICON_BIG as _, big);
                 let small = icon.load_small().unwrap();
                 SendMessageW(
                     hwnd,
                     WM_SETICON,
-                    WPARAM(ICON_SMALL as _),
-                    LPARAM(small.0 as _),
+                    ICON_SMALL as _,
+                    small as _,
                 );
             }
             DragAcceptFiles(hwnd, builder.accept_drop_files);
@@ -592,7 +591,7 @@ impl Window {
     #[inline]
     pub fn close_request(&self) {
         unsafe {
-            PostMessageW(self.hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
+            PostMessageW(self.hwnd, WM_CLOSE, 0, 0);
         }
     }
 
@@ -606,7 +605,7 @@ impl Window {
 
     #[inline]
     pub fn raw_handle(&self) -> *mut std::ffi::c_void {
-        self.hwnd.0 as _
+        self.hwnd as _
     }
 
     async fn on_event<F, R>(&self, f: F) -> event::Receiver<R>

@@ -29,7 +29,7 @@ impl UiThread {
     pub fn post(f: impl FnOnce() + Send + 'static) {
         let th = Self::get();
         unsafe {
-            PostThreadMessageW(th.thread_id, WM_AWITA_METHOD, WPARAM(0), LPARAM(0));
+            PostThreadMessageW(th.thread_id, WM_AWITA_METHOD, 0, 0);
         }
         th.method_tx.send(Box::new(|_| f())).ok();
     }
@@ -37,7 +37,7 @@ impl UiThread {
     pub(crate) fn post_with_context(f: impl FnOnce(&Context) + Send + 'static) {
         let th = Self::get();
         unsafe {
-            PostThreadMessageW(th.thread_id, WM_AWITA_METHOD, WPARAM(0), LPARAM(0));
+            PostThreadMessageW(th.thread_id, WM_AWITA_METHOD, 0, 0);
         }
         th.method_tx.send(Box::new(f)).ok();
     }
@@ -97,11 +97,11 @@ impl Context {
     }
 
     pub fn insert_window(&self, hwnd: HWND, state: WindowState) {
-        self.window_map.borrow_mut().insert(hwnd.0, state);
+        self.window_map.borrow_mut().insert(hwnd, state);
     }
 
     pub fn remove_window(&self, hwnd: HWND) {
-        self.window_map.borrow_mut().remove(&hwnd.0);
+        self.window_map.borrow_mut().remove(&hwnd);
     }
 
     pub fn window_map_is_empty(&self) -> bool {
@@ -110,19 +110,19 @@ impl Context {
 
     pub fn get_window(&self, hwnd: HWND) -> Option<Ref<WindowState>> {
         let window_map = self.window_map.borrow();
-        if window_map.get(&hwnd.0).is_none() {
+        if window_map.get(&hwnd).is_none() {
             None
         } else {
-            Some(Ref::map(window_map, |m| m.get(&hwnd.0).unwrap()))
+            Some(Ref::map(window_map, |m| m.get(&hwnd).unwrap()))
         }
     }
 
     pub fn get_window_mut(&self, hwnd: HWND) -> Option<RefMut<WindowState>> {
         let window_map = self.window_map.borrow_mut();
-        if window_map.get(&hwnd.0).is_none() {
+        if window_map.get(&hwnd).is_none() {
             None
         } else {
-            Some(RefMut::map(window_map, |m| m.get_mut(&hwnd.0).unwrap()))
+            Some(RefMut::map(window_map, |m| m.get_mut(&hwnd).unwrap()))
         }
     }
 

@@ -17,7 +17,7 @@ pub fn adjust_window_size(
             right: size.width as _,
             bottom: size.height as _,
         };
-        AdjustWindowRectExForDpi(&mut rc, style.0, false, ex_style.0, dpi);
+        AdjustWindowRectExForDpi(&mut rc, style, false, ex_style, dpi);
         Physical(Size::new(
             (rc.right - rc.left) as _,
             (rc.bottom - rc.top) as _,
