@@ -241,7 +241,7 @@ fn window_class() -> &'static Vec<u16> {
             style: CS_HREDRAW | CS_VREDRAW,
             lpfnWndProc: Some(procedure::window_proc),
             hInstance: GetModuleHandleW(None),
-            hbrBackground: GetStockObject(WHITE_BRUSH),
+            hbrBackground: HBRUSH(GetStockObject(WHITE_BRUSH).0),
             lpszClassName: PWSTR(class_name.as_ptr() as _),
             ..Default::default()
         };
@@ -328,19 +328,19 @@ impl Window {
                 GetModuleHandleW(None),
                 std::ptr::null_mut(),
             );
-            if hwnd == 0 {
+            if hwnd == HWND::default() {
                 tx.send(Err(windows::core::Error::from_win32().into())).ok();
                 return;
             }
             if let Some(icon) = builder.icon {
-                let big = icon.load().unwrap();
-                SendMessageW(hwnd, WM_SETICON, ICON_BIG as _, big);
-                let small = icon.load_small().unwrap();
+                let big = LPARAM(icon.load().unwrap().0 as _);
+                SendMessageW(hwnd, WM_SETICON, WPARAM(ICON_BIG as _), big);
+                let small = LPARAM(icon.load_small().unwrap().0 as _);
                 SendMessageW(
                     hwnd,
                     WM_SETICON,
-                    ICON_SMALL as _,
-                    small as _,
+                    WPARAM(ICON_SMALL as _),
+                    small,
                 );
             }
             DragAcceptFiles(hwnd, builder.accept_drop_files);
@@ -591,7 +591,7 @@ impl Window {
     #[inline]
     pub fn close_request(&self) {
         unsafe {
-            PostMessageW(self.hwnd, WM_CLOSE, 0, 0);
+            PostMessageW(self.hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
         }
     }
 
@@ -605,7 +605,7 @@ impl Window {
 
     #[inline]
     pub fn raw_handle(&self) -> *mut std::ffi::c_void {
-        self.hwnd as _
+        self.hwnd.0 as _
     }
 
     async fn on_event<F, R>(&self, f: F) -> event::Receiver<R>
